@@ -23,13 +23,13 @@ class Store extends Equatable {
 
   @override
   List<Object?> get props => [
-        name,
-        displayName,
-        createTime,
-        updateTime,
-        activeDocumentsCount,
-        pendingDocumentsCount,
-        failedDocumentsCount,
-        sizeBytes,
-      ];
+    name,
+    displayName,
+    createTime,
+    updateTime,
+    activeDocumentsCount,
+    pendingDocumentsCount,
+    failedDocumentsCount,
+    sizeBytes,
+  ];
 }

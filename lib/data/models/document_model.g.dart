@@ -6,25 +6,10 @@ part of 'document_model.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
-DocumentModel _$DocumentModelFromJson(Map<String, dynamic> json) =>
-    DocumentModel(
-      name: json['name'] as String,
-      displayName: json['displayName'] as String?,
-      createTime: json['createTime'] == null
-          ? null
-          : DateTime.parse(json['createTime'] as String),
-      updateTime: json['updateTime'] == null
-          ? null
-          : DateTime.parse(json['updateTime'] as String),
-      state:
-          $enumDecodeNullable(_$DocumentStateEnumMap, json['state']) ??
-          DocumentState.unspecified,
-      sizeBytes: (json['sizeBytes'] as num?)?.toInt(),
-      mimeType: json['mimeType'] as String?,
-    );
-
 Map<String, dynamic> _$DocumentModelToJson(DocumentModel instance) =>
     <String, dynamic>{
+      'stringify': instance.stringify,
+      'hashCode': instance.hashCode,
       'name': instance.name,
       'displayName': instance.displayName,
       'createTime': instance.createTime?.toIso8601String(),
@@ -32,6 +17,7 @@ Map<String, dynamic> _$DocumentModelToJson(DocumentModel instance) =>
       'state': _$DocumentStateEnumMap[instance.state]!,
       'sizeBytes': instance.sizeBytes,
       'mimeType': instance.mimeType,
+      'props': instance.props,
     };
 
 const _$DocumentStateEnumMap = {

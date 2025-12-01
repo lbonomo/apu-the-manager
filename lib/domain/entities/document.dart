@@ -1,11 +1,6 @@
 import 'package:equatable/equatable.dart';
 
-enum DocumentState {
-  unspecified,
-  pending,
-  active,
-  failed,
-}
+enum DocumentState { unspecified, pending, active, failed }
 
 class Document extends Equatable {
   final String name;
@@ -28,12 +23,12 @@ class Document extends Equatable {
 
   @override
   List<Object?> get props => [
-        name,
-        displayName,
-        createTime,
-        updateTime,
-        state,
-        sizeBytes,
-        mimeType,
-      ];
+    name,
+    displayName,
+    createTime,
+    updateTime,
+    state,
+    sizeBytes,
+    mimeType,
+  ];
 }

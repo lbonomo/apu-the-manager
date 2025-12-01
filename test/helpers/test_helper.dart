@@ -1,5 +1,7 @@
 import 'package:mockito/annotations.dart';
-import '../../lib/data/datasources/file_search_remote_data_source.dart';
+import 'package:dio/dio.dart';
+import 'package:apu_the_manager/data/datasources/file_search_remote_data_source.dart';
+import 'package:apu_the_manager/domain/repositories/settings_repository.dart';
 
-@GenerateMocks([FileSearchRemoteDataSource])
+@GenerateMocks([FileSearchRemoteDataSource, Dio, SettingsRepository])
 void main() {}

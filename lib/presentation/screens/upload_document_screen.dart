@@ -10,7 +10,8 @@ class UploadDocumentScreen extends ConsumerStatefulWidget {
   const UploadDocumentScreen({super.key, required this.storeId});
 
   @override
-  ConsumerState<UploadDocumentScreen> createState() => _UploadDocumentScreenState();
+  ConsumerState<UploadDocumentScreen> createState() =>
+      _UploadDocumentScreenState();
 }
 
 class _UploadDocumentScreenState extends ConsumerState<UploadDocumentScreen> {
@@ -44,7 +45,9 @@ class _UploadDocumentScreenState extends ConsumerState<UploadDocumentScreen> {
         _isLoading = true;
       });
       try {
-        await ref.read(documentsListProvider(widget.storeId).notifier).uploadDocument(
+        await ref
+            .read(documentsListProvider(widget.storeId).notifier)
+            .uploadDocument(
               _selectedFile!,
               displayName: _displayNameController.text,
             );
@@ -53,9 +56,9 @@ class _UploadDocumentScreenState extends ConsumerState<UploadDocumentScreen> {
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Error: $e')));
         }
       } finally {
         if (mounted) {
@@ -65,9 +68,9 @@ class _UploadDocumentScreenState extends ConsumerState<UploadDocumentScreen> {
         }
       }
     } else if (_selectedFile == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a file')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please select a file')));
     }
   }
 
@@ -88,7 +91,9 @@ class _UploadDocumentScreenState extends ConsumerState<UploadDocumentScreen> {
               if (_selectedFile != null)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8.0),
-                  child: Text('Selected: ${_selectedFile!.path.split('/').last}'),
+                  child: Text(
+                    'Selected: ${_selectedFile!.path.split('/').last}',
+                  ),
                 ),
               TextFormField(
                 controller: _displayNameController,

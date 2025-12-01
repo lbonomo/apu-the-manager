@@ -4,6 +4,8 @@ import '../providers/store_providers.dart';
 import 'create_store_screen.dart';
 import 'store_details_screen.dart';
 
+import 'settings_screen.dart';
+
 class StoresScreen extends ConsumerWidget {
   const StoresScreen({super.key});
 
@@ -14,6 +16,17 @@ class StoresScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('File Search Stores'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SettingsScreen()),
+              );
+            },
+          ),
+        ],
       ),
       body: storesAsync.when(
         data: (stores) {
@@ -31,7 +44,9 @@ class StoresScreen extends ConsumerWidget {
                   icon: const Icon(Icons.delete),
                   onPressed: () async {
                     try {
-                      await ref.read(storesListProvider.notifier).deleteStore(store.name);
+                      await ref
+                          .read(storesListProvider.notifier)
+                          .deleteStore(store.name);
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('Store deleted')),
@@ -39,9 +54,9 @@ class StoresScreen extends ConsumerWidget {
                       }
                     } catch (e) {
                       if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Error: $e')),
-                        );
+                        ScaffoldMessenger.of(
+                          context,
+                        ).showSnackBar(SnackBar(content: Text('Error: $e')));
                       }
                     }
                   },
@@ -50,7 +65,8 @@ class StoresScreen extends ConsumerWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => StoreDetailsScreen(storeId: store.name),
+                      builder: (context) =>
+                          StoreDetailsScreen(storeId: store.name),
                     ),
                   );
                 },

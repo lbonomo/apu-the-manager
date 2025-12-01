@@ -6,7 +6,7 @@ part of 'document_providers.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$documentsListHash() => r'fe65d53f6dfc317825ba7bc1494824c6dc3a2276';
+String _$documentContentHash() => r'6b3692d72d4a0fd2dea66dfcefcd869f361065d7';
 
 /// Copied from Dart SDK
 class _SystemHash {
@@ -29,11 +29,132 @@ class _SystemHash {
   }
 }
 
+/// See also [documentContent].
+@ProviderFor(documentContent)
+const documentContentProvider = DocumentContentFamily();
+
+/// See also [documentContent].
+class DocumentContentFamily extends Family<AsyncValue<DocumentContent>> {
+  /// See also [documentContent].
+  const DocumentContentFamily();
+
+  /// See also [documentContent].
+  DocumentContentProvider call(Document document) {
+    return DocumentContentProvider(document);
+  }
+
+  @override
+  DocumentContentProvider getProviderOverride(
+    covariant DocumentContentProvider provider,
+  ) {
+    return call(provider.document);
+  }
+
+  static const Iterable<ProviderOrFamily>? _dependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get dependencies => _dependencies;
+
+  static const Iterable<ProviderOrFamily>? _allTransitiveDependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get allTransitiveDependencies =>
+      _allTransitiveDependencies;
+
+  @override
+  String? get name => r'documentContentProvider';
+}
+
+/// See also [documentContent].
+class DocumentContentProvider
+    extends AutoDisposeFutureProvider<DocumentContent> {
+  /// See also [documentContent].
+  DocumentContentProvider(Document document)
+    : this._internal(
+        (ref) => documentContent(ref as DocumentContentRef, document),
+        from: documentContentProvider,
+        name: r'documentContentProvider',
+        debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+            ? null
+            : _$documentContentHash,
+        dependencies: DocumentContentFamily._dependencies,
+        allTransitiveDependencies:
+            DocumentContentFamily._allTransitiveDependencies,
+        document: document,
+      );
+
+  DocumentContentProvider._internal(
+    super._createNotifier, {
+    required super.name,
+    required super.dependencies,
+    required super.allTransitiveDependencies,
+    required super.debugGetCreateSourceHash,
+    required super.from,
+    required this.document,
+  }) : super.internal();
+
+  final Document document;
+
+  @override
+  Override overrideWith(
+    FutureOr<DocumentContent> Function(DocumentContentRef provider) create,
+  ) {
+    return ProviderOverride(
+      origin: this,
+      override: DocumentContentProvider._internal(
+        (ref) => create(ref as DocumentContentRef),
+        from: from,
+        name: null,
+        dependencies: null,
+        allTransitiveDependencies: null,
+        debugGetCreateSourceHash: null,
+        document: document,
+      ),
+    );
+  }
+
+  @override
+  AutoDisposeFutureProviderElement<DocumentContent> createElement() {
+    return _DocumentContentProviderElement(this);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is DocumentContentProvider && other.document == document;
+  }
+
+  @override
+  int get hashCode {
+    var hash = _SystemHash.combine(0, runtimeType.hashCode);
+    hash = _SystemHash.combine(hash, document.hashCode);
+
+    return _SystemHash.finish(hash);
+  }
+}
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+mixin DocumentContentRef on AutoDisposeFutureProviderRef<DocumentContent> {
+  /// The parameter `document` of this provider.
+  Document get document;
+}
+
+class _DocumentContentProviderElement
+    extends AutoDisposeFutureProviderElement<DocumentContent>
+    with DocumentContentRef {
+  _DocumentContentProviderElement(super.provider);
+
+  @override
+  Document get document => (origin as DocumentContentProvider).document;
+}
+
+String _$documentsListHash() => r'e945ef844e0abb5d902b96bd39450ca8fd2313c0';
+
 abstract class _$DocumentsList
-    extends BuildlessAutoDisposeAsyncNotifier<List<Document>> {
+    extends BuildlessAutoDisposeAsyncNotifier<PaginatedResult<Document>> {
   late final String storeId;
 
-  FutureOr<List<Document>> build(String storeId);
+  FutureOr<PaginatedResult<Document>> build(String storeId);
 }
 
 /// See also [DocumentsList].
@@ -41,7 +162,8 @@ abstract class _$DocumentsList
 const documentsListProvider = DocumentsListFamily();
 
 /// See also [DocumentsList].
-class DocumentsListFamily extends Family<AsyncValue<List<Document>>> {
+class DocumentsListFamily
+    extends Family<AsyncValue<PaginatedResult<Document>>> {
   /// See also [DocumentsList].
   const DocumentsListFamily();
 
@@ -75,7 +197,10 @@ class DocumentsListFamily extends Family<AsyncValue<List<Document>>> {
 /// See also [DocumentsList].
 class DocumentsListProvider
     extends
-        AutoDisposeAsyncNotifierProviderImpl<DocumentsList, List<Document>> {
+        AutoDisposeAsyncNotifierProviderImpl<
+          DocumentsList,
+          PaginatedResult<Document>
+        > {
   /// See also [DocumentsList].
   DocumentsListProvider(String storeId)
     : this._internal(
@@ -104,7 +229,9 @@ class DocumentsListProvider
   final String storeId;
 
   @override
-  FutureOr<List<Document>> runNotifierBuild(covariant DocumentsList notifier) {
+  FutureOr<PaginatedResult<Document>> runNotifierBuild(
+    covariant DocumentsList notifier,
+  ) {
     return notifier.build(storeId);
   }
 
@@ -125,7 +252,10 @@ class DocumentsListProvider
   }
 
   @override
-  AutoDisposeAsyncNotifierProviderElement<DocumentsList, List<Document>>
+  AutoDisposeAsyncNotifierProviderElement<
+    DocumentsList,
+    PaginatedResult<Document>
+  >
   createElement() {
     return _DocumentsListProviderElement(this);
   }
@@ -146,14 +276,18 @@ class DocumentsListProvider
 
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
-mixin DocumentsListRef on AutoDisposeAsyncNotifierProviderRef<List<Document>> {
+mixin DocumentsListRef
+    on AutoDisposeAsyncNotifierProviderRef<PaginatedResult<Document>> {
   /// The parameter `storeId` of this provider.
   String get storeId;
 }
 
 class _DocumentsListProviderElement
     extends
-        AutoDisposeAsyncNotifierProviderElement<DocumentsList, List<Document>>
+        AutoDisposeAsyncNotifierProviderElement<
+          DocumentsList,
+          PaginatedResult<Document>
+        >
     with DocumentsListRef {
   _DocumentsListProviderElement(super.provider);
 

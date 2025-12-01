@@ -26,15 +26,17 @@ class _CreateStoreScreenState extends ConsumerState<CreateStoreScreen> {
         _isLoading = true;
       });
       try {
-        await ref.read(storesListProvider.notifier).createStore(_displayNameController.text);
+        await ref
+            .read(storesListProvider.notifier)
+            .createStore(_displayNameController.text);
         if (mounted) {
           Navigator.pop(context);
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Error: $e')));
         }
       } finally {
         if (mounted) {
