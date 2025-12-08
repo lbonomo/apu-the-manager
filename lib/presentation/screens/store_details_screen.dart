@@ -6,6 +6,10 @@ import '../providers/document_providers.dart';
 import '../providers/store_providers.dart';
 import 'upload_document_screen.dart';
 import 'document_details_screen.dart';
+import '../widgets/metadata_config_dialog.dart';
+import '../widgets/metadata_filter_bar.dart';
+import '../providers/metadata_filters_provider.dart';
+import '../../domain/entities/custom_metadata.dart';
 
 class StoreDetailsScreen extends ConsumerStatefulWidget {
   final String storeId;
@@ -21,6 +25,10 @@ class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
   bool _isBulkDeleting = false;
   late ScrollController _scrollController;
   bool _isLoadingMore = false;
+  
+  // Variables para ordenamiento
+  int? _sortColumnIndex;
+  bool _sortAscending = true;
 
   @override
   void initState() {
@@ -76,6 +84,16 @@ class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
     }
   }
 
+  void _onSort<T>(
+    Comparable<T> Function(Document d) getField,
+    int columnIndex,
+    bool ascending,
+  ) {
+    setState(() {
+      _sortColumnIndex = columnIndex;
+      _sortAscending = ascending;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -99,6 +117,16 @@ class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
               ref.invalidate(documentsListProvider(widget.storeId));
             },
             tooltip: 'Refrescar',
+          ),
+          IconButton(
+            icon: const Icon(Icons.tune),
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (context) => MetadataConfigDialog(storeId: widget.storeId),
+              );
+            },
+            tooltip: 'Configurar Metadatos',
           ),
         ],
       ),
@@ -162,28 +190,49 @@ class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
           Expanded(
             child: documentsAsync.when(
         data: (paginatedResult) {
-          final documents = paginatedResult.items;
+          // Crear copia para ordenar y filtrar
+          var documents = List<Document>.from(paginatedResult.items);
+
+          // Filtrado por Metadatos
+          final filters = ref.watch(metadataFiltersProvider(widget.storeId));
+          if (filters.isNotEmpty) {
+            documents = documents.where((doc) {
+              for (final entry in filters.entries) {
+                final key = entry.key;
+                final allowedValues = entry.value;
+                if (allowedValues.isEmpty) continue;
+
+                final hasMatch = doc.customMetadata?.any((m) {
+                  return m.key == key && allowedValues.contains(m.displayValue);
+                }) ?? false;
+
+                if (!hasMatch) return false;
+              }
+              return true;
+            }).toList();
+          }
+
+          if (_sortColumnIndex != null) {
+            documents.sort((a, b) {
+              final aValue = _getSortValue(a, _sortColumnIndex!);
+              final bValue = _getSortValue(b, _sortColumnIndex!);
+              return Comparable.compare(aValue, bValue);
+            });
+            if (!_sortAscending) {
+               // Invertir lista manualmente o usar compareTo invertido
+               // documents = documents.reversed.toList(); no ordena in-place
+               // Mejor ordenar con a y b invertidos si ascendente es falso, pero arriba ya orderné
+               // Simplemente invertimos
+               final reversed = documents.reversed.toList();
+               documents.clear();
+               documents.addAll(reversed);
+            }
+          }
 
           if (documents.isEmpty) {
             return const Center(child: Text('No documents found.'));
           }
-
-          final documentNames = documents
-              .map((document) => document.name)
-              .toSet();
-          final missingSelections = _selectedDocumentIds
-              .where((id) => !documentNames.contains(id))
-              .toList();
-
-          if (missingSelections.isNotEmpty) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (!mounted) return;
-              setState(() {
-                _selectedDocumentIds.removeAll(missingSelections);
-              });
-            });
-          }
-
+// ...
           return LayoutBuilder(
             builder: (context, constraints) {
               // Calculate widths for fixed columns
@@ -210,14 +259,22 @@ class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
                       (columnSpacing * 7) +
                       (horizontalMargin * 2));
 
-              return SingleChildScrollView(
-                controller: _scrollController,
-                scrollDirection: Axis.vertical,
-                child: SizedBox(
-                  width: constraints.maxWidth,
-                  child: Column(
-                    children: [
-                      if (_selectedDocumentIds.isNotEmpty)
+              // Definir anchos explícitos
+              final colWidths = {
+                'checkbox': checkboxWidth,
+                'name': displayNameWidth,
+                'state': stateWidth,
+                'size': sizeWidth,
+                'mime': mimeWidth,
+                'created': createdWidth,
+                'updated': updatedWidth,
+                'actions': actionsWidth,
+              };
+
+              return Column(
+                children: [
+                   MetadataFilterBar(storeId: widget.storeId),
+                   if (_selectedDocumentIds.isNotEmpty)
                         Padding(
                           padding: const EdgeInsets.fromLTRB(
                             horizontalMargin,
@@ -272,211 +329,58 @@ class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
                             ),
                           ),
                         ),
-                      DataTable(
-                        columnSpacing: columnSpacing,
-                        horizontalMargin: horizontalMargin,
-                        columns: const [
-                          DataColumn(label: Text('Display Name')),
-                          DataColumn(label: Text('State')),
-                          DataColumn(label: Text('Size')),
-                          DataColumn(label: Text('MIME Type')),
-                          DataColumn(label: Text('Created')),
-                          DataColumn(label: Text('Updated')),
-                          DataColumn(label: Text('Actions')),
-                        ],
-                        rows: documents.map((document) {
-                          final isSelected = _selectedDocumentIds.contains(
-                            document.name,
-                          );
-
-                          return DataRow(
-                            selected: isSelected,
-                            onSelectChanged: (selected) {
-                              if (selected == null) {
-                                return;
-                              }
-                              setState(() {
-                                if (selected) {
-                                  _selectedDocumentIds.add(document.name);
-                                } else {
-                                  _selectedDocumentIds.remove(document.name);
-                                }
-                              });
-                            },
-                            cells: [
-                              DataCell(
-                                SizedBox(
-                                  width: displayNameWidth > 200
-                                      ? displayNameWidth
-                                      : 200,
-                                  child: MouseRegion(
-                                    cursor: SystemMouseCursors.click,
-                                    child: InkWell(
-                                      onTap: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) =>
-                                                DocumentDetailsScreen(document: document),
-                                          ),
-                                        );
-                                      },
-                                      borderRadius: BorderRadius.circular(4),
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 4,
-                                        ),
-                                        child: Text(
-                                          document.displayName ??
-                                              document.name.split('/').last,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            color: Theme.of(
-                                              context,
-                                            ).colorScheme.primary,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              DataCell(
-                                SizedBox(
-                                  width: stateWidth,
-                                  child: _buildStateChip(document.state),
-                                ),
-                              ),
-                              DataCell(
-                                SizedBox(
-                                  width: sizeWidth,
-                                  child: Text(_formatBytes(document.sizeBytes)),
-                                ),
-                              ),
-                              DataCell(
-                                SizedBox(
-                                  width: mimeWidth,
-                                  child: Text(
-                                    document.mimeType ?? 'N/A',
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ),
-                              DataCell(
-                                SizedBox(
-                                  width: createdWidth,
-                                  child: Text(
-                                    document.createTime != null
-                                        ? _formatDateTime(document.createTime!)
-                                        : 'N/A',
-                                  ),
-                                ),
-                              ),
-                              DataCell(
-                                SizedBox(
-                                  width: updatedWidth,
-                                  child: Text(
-                                    document.updateTime != null
-                                        ? _formatDateTime(document.updateTime!)
-                                        : 'N/A',
-                                  ),
-                                ),
-                              ),
-                              DataCell(
-                                SizedBox(
-                                  width: actionsWidth,
-                                  child: IconButton(
-                                    icon: const Icon(
-                                      Icons.delete,
-                                      color: Colors.red,
-                                    ),
-                                    onPressed: () async {
-                                      final confirm = await showDialog<bool>(
-                                        context: context,
-                                        builder: (dialogContext) => AlertDialog(
-                                          title: const Text('Confirm Delete'),
-                                          content: Text(
-                                            'Are you sure you want to delete "${document.displayName ?? document.name.split('/').last}"?',
-                                          ),
-                                          actions: [
-                                            TextButton(
-                                              onPressed: () => Navigator.pop(
-                                                dialogContext,
-                                                false,
-                                              ),
-                                              child: const Text('Cancel'),
-                                            ),
-                                            TextButton(
-                                              onPressed: () => Navigator.pop(
-                                                dialogContext,
-                                                true,
-                                              ),
-                                              child: const Text('Delete'),
-                                            ),
-                                          ],
-                                        ),
-                                      );
-
-                                      if (confirm == true && context.mounted) {
-                                        try {
-                                          await ref
-                                              .read(
-                                                documentsListProvider(
-                                                  widget.storeId,
-                                                ).notifier,
-                                              )
-                                              .deleteDocument(document.name);
-                                          if (context.mounted) {
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              const SnackBar(
-                                                content: Text(
-                                                  'Document deleted',
-                                                ),
-                                              ),
-                                            );
-                                          }
-                                        } catch (e) {
-                                          if (context.mounted) {
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              SnackBar(
-                                                content: Text('Error: $e'),
-                                              ),
-                                            );
-                                          }
-                                        }
-                                      }
-                                    },
-                                  ),
-                                ),
-                              ),
-                            ],
-                          );
-                        }).toList(),
-                      ),
-                      if (_isLoadingMore)
-                        const Padding(
-                          padding: EdgeInsets.all(16.0),
-                          child: Center(
-                            child: CircularProgressIndicator(),
-                          ),
-                        ),
-                    ],
+                  // Sticky Header
+                  _buildStickyHeader(
+                    context,
+                    colWidths,
+                    horizontalMargin,
+                    columnSpacing,
+                    documents.length,
+                    documents.where((d) =>_selectedDocumentIds.contains(d.name)).length,
+                     (selected) {
+                        setState(() {
+                          if (selected == true) {
+                            _selectedDocumentIds.addAll(documents.map((d) => d.name));
+                          } else {
+                            _selectedDocumentIds.clear();
+                          }
+                        });
+                     }
                   ),
-                ),
+                  
+                  // Scrollable List
+                  Expanded(
+                    child: ListView.separated(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.only(bottom: 80), // Espacio para FAB
+                      itemCount: documents.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (context, index) {
+                        final document = documents[index];
+                        final isSelected = _selectedDocumentIds.contains(document.name);
+                        return _buildDocumentRow(
+                          context,
+                          document,
+                          isSelected,
+                          colWidths,
+                          horizontalMargin,
+                          columnSpacing,
+                        );
+                      },
+                    ),
+                  ),
+                ],
               );
             },
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stack) => Center(child: Text('Error: $error')),
-            ),
-          ),
-        ],
       ),
+    ),
+  ],
+),
+
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           Navigator.push(
@@ -775,5 +679,244 @@ class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
         );
       },
     );
+  }
+
+  Comparable _getSortValue(Document d, int columnIndex) {
+    switch (columnIndex) {
+      case 0:
+        return (d.displayName ?? d.name.split('/').last).toLowerCase();
+      case 1:
+        return d.state.toString();
+      case 2:
+        return d.sizeBytes ?? 0;
+      case 3:
+        return d.mimeType ?? '';
+      case 4:
+        return d.createTime ?? DateTime(0);
+      case 5:
+        return d.updateTime ?? DateTime(0);
+      default:
+        return '';
+    }
+  }
+  Widget _buildStickyHeader(
+    BuildContext context,
+    Map<String, double> widths,
+    double hMargin,
+    double spacing,
+    int totalDocs,
+    int selectedDocs,
+    ValueChanged<bool?> onSelectAll,
+  ) {
+    final theme = Theme.of(context);
+    final borderSide = BorderSide(color: theme.dividerColor, width: 1);
+    
+    // Checkbox state
+    bool? checkboxState = false;
+    if (selectedDocs > 0) {
+      checkboxState = selectedDocs == totalDocs ? true : null; // null es tristate (dash)
+    }
+
+    return Container(
+      height: 56,
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        border: Border(bottom: borderSide),
+        boxShadow: [
+          BoxShadow(
+             color: Colors.black.withValues(alpha: 0.05),
+             offset: const Offset(0, 2),
+             blurRadius: 4,
+          )
+        ]
+      ),
+      padding: EdgeInsets.symmetric(horizontal: hMargin),
+      child: Row(
+        children: [
+          // Checkbox Column
+          SizedBox(
+            width: widths['checkbox'],
+            child: Checkbox(
+              value: checkboxState,
+              tristate: true,
+              onChanged: onSelectAll,
+            ),
+          ),
+          SizedBox(width: spacing),
+          
+          // Columns
+          _buildHeaderCell('Display Name', widths['name']!, 0),
+          SizedBox(width: spacing),
+          _buildHeaderCell('State', widths['state']!, 1),
+          SizedBox(width: spacing),
+          _buildHeaderCell('Size', widths['size']!, 2, numeric: true),
+          SizedBox(width: spacing),
+          _buildHeaderCell('MIME Type', widths['mime']!, 3),
+          SizedBox(width: spacing),
+          _buildHeaderCell('Created', widths['created']!, 4),
+          SizedBox(width: spacing),
+          _buildHeaderCell('Updated', widths['updated']!, 5),
+          SizedBox(width: spacing),
+          _buildHeaderCell('Actions', widths['actions']!, -1, sortable: false),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderCell(String label, double width, int colIndex, {bool numeric = false, bool sortable = true}) {
+    final isSorted = _sortColumnIndex == colIndex;
+    final isAscending = _sortAscending;
+    final color = isSorted ? Theme.of(context).colorScheme.primary : Theme.of(context).textTheme.bodyMedium?.color;
+    final fontWeight = isSorted ? FontWeight.bold : FontWeight.w500;
+
+    Widget child = Row(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: numeric ? MainAxisAlignment.end : MainAxisAlignment.start,
+      children: [
+        Flexible(child: Text(label, style: TextStyle(color: color, fontWeight: fontWeight), overflow: TextOverflow.ellipsis)),
+        if (isSorted) ...[
+          const SizedBox(width: 4),
+          Icon(
+            isAscending ? Icons.arrow_upward : Icons.arrow_downward,
+            size: 16,
+            color: color,
+          )
+        ]
+      ],
+    );
+
+    if (sortable) {
+       child = InkWell(
+         onTap: () {
+           // final newAscending = isSorted ? !isAscending : true; // unused variable removed
+           _handleSort(colIndex);
+         },
+         child: child,
+       );
+    }
+    
+    return SizedBox(
+      width: width,
+      child: Align(
+        alignment: numeric ? Alignment.centerRight : Alignment.centerLeft,
+        child: child,
+      ),
+    );
+  }
+
+  void _handleSort(int index) {
+     switch(index) {
+       case 0: _onSort<String>((d) => d.displayName ?? d.name.split('/').last, index, _sortColumnIndex == index ? !_sortAscending : true); break;
+       case 1: _onSort<String>((d) => d.state.toString(), index, _sortColumnIndex == index ? !_sortAscending : true); break;
+       case 2: _onSort<num>((d) => d.sizeBytes ?? 0, index, _sortColumnIndex == index ? !_sortAscending : true); break;
+       case 3: _onSort<String>((d) => d.mimeType ?? '', index, _sortColumnIndex == index ? !_sortAscending : true); break;
+       case 4: _onSort<DateTime>((d) => d.createTime ?? DateTime(0), index, _sortColumnIndex == index ? !_sortAscending : true); break;
+       case 5: _onSort<DateTime>((d) => d.updateTime ?? DateTime(0), index, _sortColumnIndex == index ? !_sortAscending : true); break;
+     }
+  }
+
+  Widget _buildDocumentRow(
+    BuildContext context,
+    Document document,
+    bool isSelected,
+    Map<String, double> widths,
+    double hMargin,
+    double spacing,
+  ) {
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => DocumentDetailsScreen(document: document),
+          ),
+        );
+      },
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: hMargin, vertical: 8),
+        color: isSelected ? Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.1) : null,
+        child: Row(
+          children: [
+             SizedBox(
+               width: widths['checkbox'],
+               child: Checkbox(
+                 value: isSelected,
+                 onChanged: (val) {
+                    setState(() {
+                      if (val == true) {
+                        _selectedDocumentIds.add(document.name);
+                      } else {
+                        _selectedDocumentIds.remove(document.name);
+                      }
+                    });
+                 },
+               ),
+             ),
+             SizedBox(width: spacing),
+             // Name
+             SizedBox(
+               width: widths['name'],
+               child: Text(
+                 document.displayName ?? document.name.split('/').last,
+                 style: TextStyle(
+                    color: Theme.of(context).colorScheme.primary,
+                    fontWeight: FontWeight.w500,
+                 ),
+                 overflow: TextOverflow.ellipsis,
+               ),
+             ),
+             SizedBox(width: spacing),
+             // State
+             SizedBox(width: widths['state'], child: Align(alignment: Alignment.centerLeft, child: _buildStateChip(document.state))),
+             SizedBox(width: spacing),
+             // Size
+             SizedBox(width: widths['size'], child: Text(_formatBytes(document.sizeBytes), textAlign: TextAlign.right)),
+             SizedBox(width: spacing),
+             // Mime
+             SizedBox(width: widths['mime'], child: Text(document.mimeType ?? 'N/A', overflow: TextOverflow.ellipsis)),
+             SizedBox(width: spacing),
+             // Created
+             SizedBox(width: widths['created'], child: Text(document.createTime != null ? _formatDateTime(document.createTime!) : 'N/A')),
+             SizedBox(width: spacing),
+             // Updated
+             SizedBox(width: widths['updated'], child: Text(document.updateTime != null ? _formatDateTime(document.updateTime!) : 'N/A')),
+             SizedBox(width: spacing),
+             // Actions
+             SizedBox(
+               width: widths['actions'],
+               child: IconButton(
+                 icon: const Icon(Icons.delete, color: Colors.red, size: 20),
+                 onPressed: () => _deleteSingleDocument(document),
+               ),
+             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _deleteSingleDocument(Document document) async {
+        final confirm = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('Confirm Delete'),
+            content: Text(
+              'Are you sure you want to delete "${document.displayName ?? document.name.split('/').last}"?',
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(dialogContext, false),child: const Text('Cancel')),
+              TextButton(onPressed: () => Navigator.pop(dialogContext, true),child: const Text('Delete')),
+            ],
+          ),
+        );
+
+        if (confirm == true && mounted) {
+          try {
+            await ref.read(documentsListProvider(widget.storeId).notifier).deleteDocument(document.name);
+            if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Document deleted')));
+          } catch (e) {
+            if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+          }
+        }
   }
 }
