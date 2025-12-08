@@ -86,16 +86,33 @@ class DocumentsList extends _$DocumentsList {
     );
   }
 
-  Future<void> uploadDocument(File file, {String? displayName}) async {
+  Future<void> uploadDocument(
+    File file, {
+    String? displayName,
+    Map<String, dynamic>? customMetadata,
+  }) async {
+    final logger = ref.read(loggerServiceProvider);
+    logger.i('Iniciando subida de documento: ${file.path}');
+    if (customMetadata != null && customMetadata.isNotEmpty) {
+      logger.d('Metadata adjunto: $customMetadata');
+    }
+
     final repository = ref.read(fileSearchRepositoryProvider);
     final result = await repository.uploadDocument(
       storeId,
       file,
       displayName: displayName,
+      customMetadata: customMetadata,
     );
     result.fold(
-      (failure) => throw Exception(failure.message),
-      (document) => refresh(),
+      (failure) {
+        logger.e('Error al subir documento: ${failure.message}');
+        throw Exception(failure.message);
+      },
+      (document) {
+        logger.i('Documento subido exitosamente: ${document.name}');
+        refresh();
+      },
     );
   }
 

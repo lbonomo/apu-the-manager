@@ -148,7 +148,7 @@ class _DocumentContentProviderElement
   Document get document => (origin as DocumentContentProvider).document;
 }
 
-String _$documentsListHash() => r'3c1c14e98c76e9535064d93e51932c1bd54279d5';
+String _$documentsListHash() => r'5dd007e2cb73d857b1a0ed763cd9b29ba54eab34';
 
 abstract class _$DocumentsList
     extends BuildlessAutoDisposeAsyncNotifier<PaginatedResult<Document>> {
