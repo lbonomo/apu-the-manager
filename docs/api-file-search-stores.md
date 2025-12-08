@@ -38,7 +38,7 @@ Lista todos los FileSearchStores.
 
 **Endpoint:**
 ```
-GET https://generativelanguage.googleapis.com/v1beta/fileSearchStores
+GET https://generativelanguage.googleapis.com/v1beta/fileSearchStores?key={{GEMINI_API_KEY}}
 ```
 
 **Parámetros de consulta:**
