@@ -18,6 +18,12 @@ class StoresScreen extends ConsumerWidget {
         title: const Text('File Search Stores'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () {
+              return ref.invalidate(storesListProvider);
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.settings),
             onPressed: () {
               Navigator.push(

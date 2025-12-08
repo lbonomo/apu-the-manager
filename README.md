@@ -1,4 +1,7 @@
-# README - Apu the Manager
+# Apu the Manager
+
+!["Apu the manager"](assets/imgs/apu-the-manager.png "Apu the manager")
+
 
 ## Descripción
 
@@ -78,62 +81,6 @@ En Settings, puedes habilitar/deshabilitar el logging. Los logs aparecen en la c
 3. **Eliminar documento:** Tap en el ícono 🗑️ junto al documento
 4. **Cargar más:** Tap en "Load More" al final de la lista
 
-## Arquitectura
-
-La aplicación sigue **Clean Architecture** con tres capas principales:
-
-```
-┌─────────────────────────────────────┐
-│      Presentation Layer             │
-│  (UI, Providers, State Management)  │
-└─────────────────────────────────────┘
-              ↓
-┌─────────────────────────────────────┐
-│        Domain Layer                 │
-│  (Entities, Repository Interfaces)  │
-└─────────────────────────────────────┘
-              ↓
-┌─────────────────────────────────────┐
-│         Data Layer                  │
-│  (Models, DataSources, Repos Impl)  │
-└─────────────────────────────────────┘
-```
-
-Ver [docs/architecture.md](docs/architecture.md) para más detalles.
-
-## Tecnologías
-
-### Core
-- **Flutter**: Framework UI
-- **Dart**: Lenguaje de programación
-
-### State Management
-- **Riverpod**: State management reactivo
-- **riverpod_annotation**: Code generation para providers
-
-### Networking
-- **Dio**: Cliente HTTP
-- **Gemini API**: Backend para FileSearch
-
-### Functional Programming
-- **fpdart**: Either pattern para manejo de errores
-
-### Persistencia
-- **shared_preferences**: Almacenamiento local
-
-### Logging
-- **logger**: Sistema de logging configurable
-
-### Code Generation
-- **build_runner**: Ejecutor de generadores
-- **riverpod_generator**: Generador de providers
-- **json_serializable**: Serialización JSON
-- **freezed**: Modelos inmutables
-
-### Testing
-- **mockito**: Mocking para tests
-- **flutter_test**: Framework de testing
-
 ## Estructura del Proyecto
 
 ```
@@ -168,17 +115,6 @@ flutter test
 
 # Análisis
 flutter analyze
-
-# Formatear
-dart format .
-```
-
-## Documentación
-
-- [Arquitectura](docs/architecture.md)
-- [Guía de Desarrollo](docs/development-guide.md)
-- [API FileSearchStores](docs/api-file-search-stores.md)
-- [API Documents](docs/api-documents.md)
 
 ## Roadmap
 

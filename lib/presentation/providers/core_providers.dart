@@ -20,6 +20,7 @@ FileSearchRemoteDataSource fileSearchRemoteDataSource(Ref ref) {
   return FileSearchRemoteDataSourceImpl(
     dio: ref.watch(dioProvider),
     settingsRepository: ref.watch(settingsRepositoryProvider),
+    logger: ref.watch(loggerServiceProvider),
   );
 }
 

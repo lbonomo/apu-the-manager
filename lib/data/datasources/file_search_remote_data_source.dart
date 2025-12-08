@@ -10,6 +10,7 @@ import '../models/document_model.dart';
 import '../../domain/repositories/settings_repository.dart';
 import '../../domain/entities/paginated_result.dart';
 import '../../domain/entities/document_content.dart';
+import '../../core/services/logger_service.dart';
 
 abstract class FileSearchRemoteDataSource {
   Future<List<StoreModel>> listStores();
@@ -35,11 +36,13 @@ abstract class FileSearchRemoteDataSource {
 class FileSearchRemoteDataSourceImpl implements FileSearchRemoteDataSource {
   final Dio dio;
   final SettingsRepository settingsRepository;
+  final LoggerService logger;
   final String _baseUrl = 'https://generativelanguage.googleapis.com/v1beta';
 
   FileSearchRemoteDataSourceImpl({
     required this.dio,
     required this.settingsRepository,
+    required this.logger,
   });
 
   Future<String> get _apiKey async {
@@ -56,6 +59,7 @@ class FileSearchRemoteDataSourceImpl implements FileSearchRemoteDataSource {
   Future<List<StoreModel>> listStores() async {
     try {
       final key = await _apiKey;
+      logger.i('Listing stores...');
       final response = await dio.get(
         '$_baseUrl/fileSearchStores',
         queryParameters: {'key': key},
@@ -68,7 +72,27 @@ class FileSearchRemoteDataSourceImpl implements FileSearchRemoteDataSource {
       } else {
         throw ServerFailure('Failed to list stores: ${response.statusCode}');
       }
+    } on DioException catch (e) {
+      logger.e('DioException in listStores', e);
+      logger.d('Response data: ${e.response?.data}');
+      // Extract detailed error message if available
+      String errorMessage = e.message ?? 'Unknown Dio error';
+      if (e.response?.data is Map &&
+          (e.response?.data as Map).containsKey('error')) {
+        final errorMap = e.response?.data['error'];
+        if (errorMap is Map) {
+          errorMessage =
+              '${errorMap['message']} (Status: ${errorMap['status']})';
+        } else {
+          errorMessage = errorMap.toString();
+        }
+      }
+
+      throw ServerFailure(
+        'Failed to list stores: ${e.response?.statusCode} - $errorMessage',
+      );
     } catch (e) {
+      logger.e('Error in listStores', e);
       throw ServerFailure(e.toString());
     }
   }
@@ -311,14 +335,14 @@ class FileSearchRemoteDataSourceImpl implements FileSearchRemoteDataSource {
         resourceName = '$storeId/documents/$documentId';
       }
 
-      print('🔍 Deleting document with resource name: $resourceName');
+      logger.i('Deleting document with resource name: $resourceName');
 
       final key = await _apiKey;
 
       Future<void> performDelete() async {
         // The resource name should be used directly in the URL path
         final url = '$_baseUrl/$resourceName';
-        print('🔍 DELETE URL: $url');
+        logger.d('DELETE URL: $url');
 
         final response = await dio.delete(
           url,
@@ -329,7 +353,7 @@ class FileSearchRemoteDataSourceImpl implements FileSearchRemoteDataSource {
           },
         );
 
-        print('🔍 Delete response status: ${response.statusCode}');
+        logger.d('Delete response status: ${response.statusCode}');
 
         if (response.statusCode != 200 && response.statusCode != 204) {
           throw ServerFailure(
@@ -342,14 +366,14 @@ class FileSearchRemoteDataSourceImpl implements FileSearchRemoteDataSource {
         await performDelete();
         return;
       } on DioException catch (e) {
-        print('🔍 DioException details:');
-        print('  Status code: ${e.response?.statusCode}');
-        print('  Response data: ${e.response?.data}');
-        print('  Request URL: ${e.requestOptions.uri}');
+        logger.w('DioException details:', e);
+        logger.d('  Status code: ${e.response?.statusCode}');
+        logger.d('  Response data: ${e.response?.data}');
+        logger.d('  Request URL: ${e.requestOptions.uri}');
 
         if (_isNonEmptyDocumentError(e)) {
-          print(
-            '🔍 Document has remaining chunks. Attempting to remove chunks before retrying delete.',
+          logger.i(
+            'Document has remaining chunks. Attempting to remove chunks before retrying delete.',
           );
           await _deleteDocumentChunks(resourceName, key);
 
@@ -360,10 +384,10 @@ class FileSearchRemoteDataSourceImpl implements FileSearchRemoteDataSource {
             await performDelete();
             return;
           } on DioException catch (retryError) {
-            print('🔍 DioException on retry:');
-            print('  Status code: ${retryError.response?.statusCode}');
-            print('  Response data: ${retryError.response?.data}');
-            print('  Request URL: ${retryError.requestOptions.uri}');
+            logger.w('DioException on retry:', retryError);
+            logger.d('  Status code: ${retryError.response?.statusCode}');
+            logger.d('  Response data: ${retryError.response?.data}');
+            logger.d('  Request URL: ${retryError.requestOptions.uri}');
 
             if (_isNonEmptyDocumentError(retryError)) {
               throw ServerFailure(
@@ -381,7 +405,7 @@ class FileSearchRemoteDataSourceImpl implements FileSearchRemoteDataSource {
     } on ServerFailure {
       rethrow;
     } catch (e) {
-      print('🔍 Delete error: $e');
+      logger.e('Delete error', e);
       throw ServerFailure(e.toString());
     }
   }
@@ -406,8 +430,8 @@ class FileSearchRemoteDataSourceImpl implements FileSearchRemoteDataSource {
         );
       } on DioException catch (chunkListError) {
         if (chunkListError.response?.statusCode == 404) {
-          print(
-            '🔍 Document has no recorded chunks or the chunks endpoint is unavailable (404). '
+          logger.d(
+            'Document has no recorded chunks or the chunks endpoint is unavailable (404). '
             'Assuming there are no remaining chunks.',
           );
           return;
@@ -440,7 +464,7 @@ class FileSearchRemoteDataSourceImpl implements FileSearchRemoteDataSource {
           continue;
         }
 
-        print('🔍 Deleting chunk: $chunkName');
+        logger.d('Deleting chunk: $chunkName');
 
         try {
           final chunkResponse = await dio.delete(
@@ -448,12 +472,12 @@ class FileSearchRemoteDataSourceImpl implements FileSearchRemoteDataSource {
             queryParameters: {'key': apiKey},
           );
 
-          print(
-            '🔍 Delete chunk response status ($chunkName): ${chunkResponse.statusCode}',
+          logger.d(
+            'Delete chunk response status ($chunkName): ${chunkResponse.statusCode}',
           );
         } on DioException catch (chunkError) {
           if (chunkError.response?.statusCode == 404) {
-            print('🔍 Chunk already deleted (404): $chunkName');
+            logger.d('Chunk already deleted (404): $chunkName');
             continue;
           }
 

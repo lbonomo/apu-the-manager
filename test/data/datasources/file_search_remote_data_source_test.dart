@@ -3,19 +3,25 @@ import 'package:mockito/mockito.dart';
 import 'package:dio/dio.dart';
 import 'package:apu_the_manager/data/datasources/file_search_remote_data_source.dart';
 import 'package:apu_the_manager/data/models/store_model.dart';
+import 'package:apu_the_manager/core/services/logger_service.dart';
 import '../../helpers/test_helper.mocks.dart';
+
+class MockLoggerService extends Mock implements LoggerService {}
 
 void main() {
   late FileSearchRemoteDataSourceImpl dataSource;
   late MockDio mockDio;
   late MockSettingsRepository mockSettingsRepository;
+  late MockLoggerService mockLoggerService;
 
   setUp(() {
     mockDio = MockDio();
     mockSettingsRepository = MockSettingsRepository();
+    mockLoggerService = MockLoggerService();
     dataSource = FileSearchRemoteDataSourceImpl(
       dio: mockDio,
       settingsRepository: mockSettingsRepository,
+      logger: mockLoggerService,
     );
   });
 

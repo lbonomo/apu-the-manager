@@ -5,26 +5,53 @@ import '../../domain/entities/document.dart';
 import '../providers/document_providers.dart';
 import 'upload_document_screen.dart';
 
-class StoreDetailsScreen extends ConsumerWidget {
+class StoreDetailsScreen extends ConsumerStatefulWidget {
   final String storeId;
 
   const StoreDetailsScreen({super.key, required this.storeId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final documentsAsync = ref.watch(documentsListProvider(storeId));
+  ConsumerState<StoreDetailsScreen> createState() => _StoreDetailsScreenState();
+}
+
+class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
+  final Set<String> _selectedDocumentIds = <String>{};
+  bool _isBulkDeleting = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final documentsAsync = ref.watch(documentsListProvider(widget.storeId));
 
     return Scaffold(
       appBar: AppBar(title: const Text('Store Documents')),
       body: documentsAsync.when(
         data: (paginatedResult) {
           final documents = paginatedResult.items;
+
           if (documents.isEmpty) {
             return const Center(child: Text('No documents found.'));
           }
+
+          final documentNames = documents
+              .map((document) => document.name)
+              .toSet();
+          final missingSelections = _selectedDocumentIds
+              .where((id) => !documentNames.contains(id))
+              .toList();
+
+          if (missingSelections.isNotEmpty) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              setState(() {
+                _selectedDocumentIds.removeAll(missingSelections);
+              });
+            });
+          }
+
           return LayoutBuilder(
             builder: (context, constraints) {
               // Calculate widths for fixed columns
+              const checkboxWidth = 56.0;
               const stateWidth = 120.0;
               const sizeWidth = 100.0;
               const mimeWidth = 150.0;
@@ -37,13 +64,14 @@ class StoreDetailsScreen extends ConsumerWidget {
               // Calculate remaining width for Display Name
               final displayNameWidth =
                   constraints.maxWidth -
-                  (stateWidth +
+                  (checkboxWidth +
+                      stateWidth +
                       sizeWidth +
                       mimeWidth +
                       createdWidth +
                       updatedWidth +
                       actionsWidth +
-                      (columnSpacing * 6) +
+                      (columnSpacing * 7) +
                       (horizontalMargin * 2));
 
               return SingleChildScrollView(
@@ -52,6 +80,61 @@ class StoreDetailsScreen extends ConsumerWidget {
                   width: constraints.maxWidth,
                   child: Column(
                     children: [
+                      if (_selectedDocumentIds.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(
+                            horizontalMargin,
+                            16,
+                            horizontalMargin,
+                            8,
+                          ),
+                          child: Material(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .surfaceContainerHighest
+                                .withValues(alpha: 0.6),
+                            borderRadius: BorderRadius.circular(8),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              child: Row(
+                                children: [
+                                  Text(
+                                    '${_selectedDocumentIds.length} documentos seleccionados',
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodyMedium,
+                                  ),
+                                  const Spacer(),
+                                  TextButton.icon(
+                                    onPressed: _isBulkDeleting
+                                        ? null
+                                        : () => _confirmBulkDelete(),
+                                    icon: _isBulkDeleting
+                                        ? const SizedBox(
+                                            height: 16,
+                                            width: 16,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : const Icon(
+                                            Icons.delete,
+                                            color: Colors.red,
+                                          ),
+                                    label: Text(
+                                      _isBulkDeleting
+                                          ? 'Eliminando...'
+                                          : 'Eliminar seleccionados',
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
                       DataTable(
                         columnSpacing: columnSpacing,
                         horizontalMargin: horizontalMargin,
@@ -65,7 +148,24 @@ class StoreDetailsScreen extends ConsumerWidget {
                           DataColumn(label: Text('Actions')),
                         ],
                         rows: documents.map((document) {
+                          final isSelected = _selectedDocumentIds.contains(
+                            document.name,
+                          );
+
                           return DataRow(
+                            selected: isSelected,
+                            onSelectChanged: (selected) {
+                              if (selected == null) {
+                                return;
+                              }
+                              setState(() {
+                                if (selected) {
+                                  _selectedDocumentIds.add(document.name);
+                                } else {
+                                  _selectedDocumentIds.remove(document.name);
+                                }
+                              });
+                            },
                             cells: [
                               DataCell(
                                 SizedBox(
@@ -152,20 +252,24 @@ class StoreDetailsScreen extends ConsumerWidget {
                                     onPressed: () async {
                                       final confirm = await showDialog<bool>(
                                         context: context,
-                                        builder: (context) => AlertDialog(
+                                        builder: (dialogContext) => AlertDialog(
                                           title: const Text('Confirm Delete'),
                                           content: Text(
                                             'Are you sure you want to delete "${document.displayName ?? document.name.split('/').last}"?',
                                           ),
                                           actions: [
                                             TextButton(
-                                              onPressed: () =>
-                                                  Navigator.pop(context, false),
+                                              onPressed: () => Navigator.pop(
+                                                dialogContext,
+                                                false,
+                                              ),
                                               child: const Text('Cancel'),
                                             ),
                                             TextButton(
-                                              onPressed: () =>
-                                                  Navigator.pop(context, true),
+                                              onPressed: () => Navigator.pop(
+                                                dialogContext,
+                                                true,
+                                              ),
                                               child: const Text('Delete'),
                                             ),
                                           ],
@@ -177,7 +281,7 @@ class StoreDetailsScreen extends ConsumerWidget {
                                           await ref
                                               .read(
                                                 documentsListProvider(
-                                                  storeId,
+                                                  widget.storeId,
                                                 ).notifier,
                                               )
                                               .deleteDocument(document.name);
@@ -218,7 +322,11 @@ class StoreDetailsScreen extends ConsumerWidget {
                           child: ElevatedButton.icon(
                             onPressed: () {
                               ref
-                                  .read(documentsListProvider(storeId).notifier)
+                                  .read(
+                                    documentsListProvider(
+                                      widget.storeId,
+                                    ).notifier,
+                                  )
                                   .loadMore();
                             },
                             icon: const Icon(Icons.arrow_downward),
@@ -240,13 +348,85 @@ class StoreDetailsScreen extends ConsumerWidget {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => UploadDocumentScreen(storeId: storeId),
+              builder: (context) =>
+                  UploadDocumentScreen(storeId: widget.storeId),
             ),
           );
         },
         child: const Icon(Icons.upload_file),
       ),
     );
+  }
+
+  Future<void> _confirmBulkDelete() async {
+    final selectedIds = List<String>.unmodifiable(_selectedDocumentIds);
+    final count = selectedIds.length;
+
+    if (count == 0) {
+      return;
+    }
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Confirmar eliminación'),
+        content: Text(
+          count == 1
+              ? '¿Deseas eliminar el documento seleccionado?'
+              : '¿Deseas eliminar los $count documentos seleccionados?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _isBulkDeleting = true;
+    });
+
+    try {
+      await ref
+          .read(documentsListProvider(widget.storeId).notifier)
+          .deleteDocuments(selectedIds);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _selectedDocumentIds.clear();
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            count == 1 ? 'Documento eliminado' : 'Documentos eliminados',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isBulkDeleting = false;
+        });
+      }
+    }
   }
 
   Widget _buildStateChip(DocumentState state) {
@@ -278,7 +458,7 @@ class StoreDetailsScreen extends ConsumerWidget {
         state.name.toUpperCase(),
         style: TextStyle(color: color, fontSize: 12),
       ),
-      backgroundColor: color.withOpacity(0.1),
+      backgroundColor: color.withValues(alpha: 0.1),
     );
   }
 

@@ -116,6 +116,39 @@ class DocumentsList extends _$DocumentsList {
       },
     );
   }
+
+  Future<void> deleteDocuments(List<String> documentIds) async {
+    if (documentIds.isEmpty) return;
+
+    final logger = ref.read(loggerServiceProvider);
+    logger.i(
+      'Iniciando eliminación masiva de ${documentIds.length} documentos.',
+    );
+
+    final repository = ref.read(fileSearchRepositoryProvider);
+    final errors = <String>[];
+
+    for (final documentId in documentIds) {
+      final result = await repository.deleteDocument(storeId, documentId);
+      result.fold(
+        (failure) {
+          logger.e(
+            'Error al eliminar documento $documentId: ${failure.message}',
+          );
+          errors.add('${failure.message} ($documentId)');
+        },
+        (_) {
+          logger.i('Documento eliminado exitosamente: $documentId');
+        },
+      );
+    }
+
+    await refresh();
+
+    if (errors.isNotEmpty) {
+      throw Exception(errors.join('\n'));
+    }
+  }
 }
 
 @riverpod
