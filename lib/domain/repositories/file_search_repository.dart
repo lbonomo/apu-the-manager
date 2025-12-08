@@ -20,6 +20,7 @@ abstract class FileSearchRepository {
     String storeId,
     File file, {
     String? displayName,
+    Map<String, dynamic>? customMetadata,
   });
   Future<Either<Failure, void>> deleteDocument(
     String storeId,

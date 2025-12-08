@@ -25,6 +25,7 @@ abstract class FileSearchRemoteDataSource {
     String storeId,
     File file, {
     String? displayName,
+    Map<String, dynamic>? customMetadata,
   });
   Future<void> deleteDocument(String storeId, String documentId);
   Future<DocumentContent> getDocumentContent(
@@ -178,6 +179,7 @@ class FileSearchRemoteDataSourceImpl implements FileSearchRemoteDataSource {
     String storeId,
     File file, {
     String? displayName,
+    Map<String, dynamic>? customMetadata,
   }) async {
     try {
       // Uploading a file involves two steps usually with Google APIs:
@@ -217,10 +219,50 @@ class FileSearchRemoteDataSourceImpl implements FileSearchRemoteDataSource {
       String fileName = displayName ?? basename(file.path);
 
       // We need to construct the metadata JSON.
+      // Build the metadata object with displayName and optionally customMetadata
+      Map<String, dynamic> metadataObject = {'displayName': fileName};
+      
+      // Add custom metadata if provided
+      if (customMetadata != null && customMetadata.isNotEmpty) {
+        // Convert customMetadata to the format expected by the API
+        // The API expects customMetadata as an array of objects with key and either:
+        // - stringValue (String)
+        // - numericValue (Number)
+        // - stringListValue (List<String>)
+        List<Map<String, dynamic>> customMetadataArray = [];
+        customMetadata.forEach((key, value) {
+          if (value is String) {
+            customMetadataArray.add({
+              'key': key,
+              'stringValue': value,
+            });
+          } else if (value is num) {
+            customMetadataArray.add({
+              'key': key,
+              'numericValue': value.toDouble(),
+            });
+          } else if (value is List) {
+            // Handle List<String> for tags, categories, etc.
+            final stringList = value.map((e) => e.toString()).toList();
+            customMetadataArray.add({
+              'key': key,
+              'stringListValue': {
+                'values': stringList,
+              },
+            });
+          }
+        });
+        
+        if (customMetadataArray.isNotEmpty) {
+          metadataObject['customMetadata'] = customMetadataArray;
+        }
+      }
+
+      logger.d('Metadata JSON para subida: ${jsonEncode(metadataObject)}');
 
       FormData formData = FormData.fromMap({
         'metadata': MultipartFile.fromString(
-          '{"displayName": "$fileName"}',
+          jsonEncode(metadataObject),
           contentType: MediaType.parse('application/json'),
         ),
         'file': await MultipartFile.fromFile(file.path, filename: fileName),
@@ -255,8 +297,11 @@ class FileSearchRemoteDataSourceImpl implements FileSearchRemoteDataSource {
         // { "name": ..., "done": ..., "response": { "@type": ..., ... } }
 
         final data = response.data;
+        logger.d('Respuesta de subida (Operation): $data');
+
         if (data['done'] == true) {
           if (data.containsKey('response')) {
+             logger.d('Parseando documento desde response: ${data['response']}');
             // The response field contains the Document, but it might be wrapped or typed.
             // Actually, the `response` field in Operation is an Any type.
             // We might need to parse it.
@@ -272,7 +317,12 @@ class FileSearchRemoteDataSourceImpl implements FileSearchRemoteDataSource {
 
             // If `done` is true, `response` holds the result.
             // The result should be the Document.
-            return DocumentModel.fromJson(data['response']);
+            try {
+              return DocumentModel.fromJson(data['response']);
+            } catch (e) {
+              logger.e('Error al parsear DocumentModel desde respuesta: ${data['response']}', e);
+              throw ServerFailure('Error de formato en respuesta de API: $e');
+            }
           } else if (data.containsKey('error')) {
             throw ServerFailure('Upload failed: ${data['error']}');
           }
@@ -288,6 +338,12 @@ class FileSearchRemoteDataSourceImpl implements FileSearchRemoteDataSource {
           'Failed to upload document: ${response.statusCode}',
         );
       }
+    } on DioException catch (e) {
+      logger.e('DioException in uploadDocument', e);
+      logger.d('Response status: ${e.response?.statusCode}');
+      logger.d('Response data: ${e.response?.data}');
+      
+      throw ServerFailure('Failed to upload document: ${e.message}');
     } catch (e) {
       throw ServerFailure(e.toString());
     }

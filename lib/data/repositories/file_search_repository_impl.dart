@@ -75,12 +75,14 @@ class FileSearchRepositoryImpl implements FileSearchRepository {
     String storeId,
     File file, {
     String? displayName,
+    Map<String, dynamic>? customMetadata,
   }) async {
     try {
       final document = await remoteDataSource.uploadDocument(
         storeId,
         file,
         displayName: displayName,
+        customMetadata: customMetadata,
       );
       return Right(document);
     } on Failure catch (e) {

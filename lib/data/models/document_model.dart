@@ -21,7 +21,8 @@ class DocumentModel extends Document {
         .toList();
 
     return DocumentModel(
-      name: json['name'] as String,
+      // Usar toString() y valor por defecto para evitar crash por null
+      name: json['name']?.toString() ?? '',
       displayName: json['displayName'] as String?,
       createTime: json['createTime'] == null
           ? null

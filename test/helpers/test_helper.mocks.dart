@@ -156,12 +156,13 @@ class MockFileSearchRemoteDataSource extends _i1.Mock
     String? storeId,
     _i9.File? file, {
     String? displayName,
+    Map<String, dynamic>? customMetadata,
   }) =>
       (super.noSuchMethod(
             Invocation.method(
               #uploadDocument,
               [storeId, file],
-              {#displayName: displayName},
+              {#displayName: displayName, #customMetadata: customMetadata},
             ),
             returnValue: _i8.Future<_i4.DocumentModel>.value(
               _FakeDocumentModel_2(
@@ -169,7 +170,7 @@ class MockFileSearchRemoteDataSource extends _i1.Mock
                 Invocation.method(
                   #uploadDocument,
                   [storeId, file],
-                  {#displayName: displayName},
+                  {#displayName: displayName, #customMetadata: customMetadata},
                 ),
               ),
             ),
