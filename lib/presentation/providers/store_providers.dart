@@ -65,3 +65,13 @@ class StoresList extends _$StoresList {
     );
   }
 }
+
+/// Provider para obtener un Store por su ID
+@riverpod
+Future<Store?> storeById(StoreByIdRef ref, String storeId) async {
+  final storesAsync = await ref.watch(storesListProvider.future);
+  return storesAsync.firstWhere(
+    (store) => store.name == storeId,
+    orElse: () => throw Exception('Store not found: $storeId'),
+  );
+}
