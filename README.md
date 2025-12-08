@@ -30,6 +30,25 @@ _(Agregar capturas aquí)_
 
 ## Instalación
 
+### Prerequisitos del Sistema
+
+#### Linux
+Instalar `libsecret-1-dev`:
+```bash
+# Ubuntu/Debian
+sudo apt-get install libsecret-1-dev
+
+# Fedora/RHEL
+sudo dnf install libsecret-devel
+
+# Arch Linux
+sudo pacman -S libsecret
+```
+
+Ver [docs/system-requirements.md](docs/system-requirements.md) para más detalles.
+
+### Pasos de Instalación
+
 1. **Clonar el repositorio:**
    ```bash
    git clone <repository-url>
@@ -56,11 +75,16 @@ _(Agregar capturas aquí)_
 ### API Key
 
 1. Ejecutar la aplicación
-2. Ir a Settings (ícono ⚙️)
-3. Ingresar tu Gemini API Key
-4. Guardar
+2. Ir a **Configuración** (ícono ⚙️ en la esquina superior derecha)
+3. Ingresar tu Gemini API Key en el campo correspondiente
+4. Presionar el botón **Guardar**
 
-La API key se almacena localmente usando `shared_preferences`.
+La API key se almacena de forma **segura** en el dispositivo usando:
+- **Linux**: libsecret
+- **macOS**: Keychain
+- **Windows**: Credential Manager
+
+> **Nota de Seguridad:** La API key nunca se almacena en texto plano. Se utiliza el almacenamiento seguro nativo del sistema operativo.
 
 ### Logging
 

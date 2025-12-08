@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'presentation/screens/stores_screen.dart';
+import 'services/config_migration_service.dart';
 
 Future<void> main() async {
-  await dotenv.load(fileName: ".env");
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Migrar API key desde shared_preferences a flutter_secure_storage si es necesario
+  await ConfigMigrationService.migrateIfNeeded();
+  
   runApp(const ProviderScope(child: MyApp()));
 }
 

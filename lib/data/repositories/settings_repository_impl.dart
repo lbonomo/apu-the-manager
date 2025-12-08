@@ -1,7 +1,14 @@
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../domain/repositories/settings_repository.dart';
 
 class SettingsRepositoryImpl implements SettingsRepository {
+  SettingsRepositoryImpl({
+    FlutterSecureStorage? secureStorage,
+  }) : _secureStorage = secureStorage ?? const FlutterSecureStorage();
+
+  final FlutterSecureStorage _secureStorage;
+
   static const String _loggingEnabledKey = 'logging_enabled';
   static const String _geminiApiKeyKey = 'gemini_api_key';
 
@@ -19,13 +26,11 @@ class SettingsRepositoryImpl implements SettingsRepository {
 
   @override
   Future<String?> getGeminiApiKey() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_geminiApiKeyKey);
+    return await _secureStorage.read(key: _geminiApiKeyKey);
   }
 
   @override
   Future<void> setGeminiApiKey(String apiKey) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_geminiApiKeyKey, apiKey);
+    await _secureStorage.write(key: _geminiApiKeyKey, value: apiKey);
   }
 }
