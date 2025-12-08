@@ -3,7 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/document.dart';
 import '../providers/document_providers.dart';
+import '../providers/store_providers.dart';
 import 'upload_document_screen.dart';
+import 'document_details_screen.dart';
 
 class StoreDetailsScreen extends ConsumerStatefulWidget {
   final String storeId;
@@ -17,14 +19,148 @@ class StoreDetailsScreen extends ConsumerStatefulWidget {
 class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
   final Set<String> _selectedDocumentIds = <String>{};
   bool _isBulkDeleting = false;
+  late ScrollController _scrollController;
+  bool _isLoadingMore = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_isLoadingMore) return;
+    if (!mounted) return;
+
+    // Detectar cuando el usuario está cerca del final (90%)
+    final maxScroll = _scrollController.position.maxScrollExtent;
+    final currentScroll = _scrollController.position.pixels;
+    final threshold = maxScroll * 0.9;
+
+    if (currentScroll >= threshold) {
+      _loadMoreDocuments();
+    }
+  }
+
+  Future<void> _loadMoreDocuments() async {
+    if (_isLoadingMore) return;
+    if (!mounted) return;
+
+    final documentsAsync = ref.read(documentsListProvider(widget.storeId));
+    final hasNextPage = documentsAsync.value?.nextPageToken != null;
+    
+    if (!hasNextPage) return;
+    
+    setState(() {
+      _isLoadingMore = true;
+    });
+
+    try {
+      await ref
+          .read(documentsListProvider(widget.storeId).notifier)
+          .loadMore();
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingMore = false;
+        });
+      }
+    }
+  }
+
 
   @override
   Widget build(BuildContext context) {
     final documentsAsync = ref.watch(documentsListProvider(widget.storeId));
+    final storeAsync = ref.watch(storeByIdProvider(widget.storeId));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Store Documents')),
-      body: documentsAsync.when(
+      appBar: AppBar(
+        title: storeAsync.when(
+          data: (store) {
+            if (store == null) return const Text('Store Documents');
+            return Text('Corpus: ${store.displayName ?? store.name}');
+          },
+          loading: () => const Text('Store Documents'),
+          error: (_, __) => const Text('Store Documents'),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () {
+              ref.invalidate(documentsListProvider(widget.storeId));
+            },
+            tooltip: 'Refrescar',
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          // Información del Corpus (Store)
+          storeAsync.when(
+            data: (store) {
+              if (store == null) return const SizedBox.shrink();
+              return Container(
+                width: double.infinity,
+                margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                child: Card(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24.0,
+                      vertical: 12.0,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _buildInfoChip(
+                          Icons.check_circle,
+                          'Activos: ${store.activeDocumentsCount ?? 0}',
+                          Colors.green,
+                        ),
+                        _buildInfoChip(
+                          Icons.hourglass_empty,
+                          'Pendientes: ${store.pendingDocumentsCount ?? 0}',
+                          Colors.orange,
+                        ),
+                        _buildInfoChip(
+                          Icons.error,
+                          'Fallidos: ${store.failedDocumentsCount ?? 0}',
+                          Colors.red,
+                        ),
+                        _buildInfoChip(
+                          Icons.storage,
+                          'Tamaño: ${_formatBytes(store.sizeBytes)}',
+                          Colors.blue,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+            loading: () => const Padding(
+              padding: EdgeInsets.all(8.0),
+              child: LinearProgressIndicator(),
+            ),
+            error: (error, stack) => Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Text(
+                'Error cargando información del corpus: $error',
+                style: const TextStyle(color: Colors.red),
+              ),
+            ),
+          ),
+          // Lista de documentos
+          Expanded(
+            child: documentsAsync.when(
         data: (paginatedResult) {
           final documents = paginatedResult.items;
 
@@ -75,6 +211,7 @@ class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
                       (horizontalMargin * 2));
 
               return SingleChildScrollView(
+                controller: _scrollController,
                 scrollDirection: Axis.vertical,
                 child: SizedBox(
                   width: constraints.maxWidth,
@@ -175,11 +312,15 @@ class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
                                   child: MouseRegion(
                                     cursor: SystemMouseCursors.click,
                                     child: InkWell(
-                                      onTap: () => _showDocumentContentDialog(
-                                        context,
-                                        ref,
-                                        document,
-                                      ),
+                                      onTap: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                DocumentDetailsScreen(document: document),
+                                          ),
+                                        );
+                                      },
                                       borderRadius: BorderRadius.circular(4),
                                       child: Padding(
                                         padding: const EdgeInsets.symmetric(
@@ -316,21 +457,11 @@ class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
                           );
                         }).toList(),
                       ),
-                      if (paginatedResult.nextPageToken != null)
-                        Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: ElevatedButton.icon(
-                            onPressed: () {
-                              ref
-                                  .read(
-                                    documentsListProvider(
-                                      widget.storeId,
-                                    ).notifier,
-                                  )
-                                  .loadMore();
-                            },
-                            icon: const Icon(Icons.arrow_downward),
-                            label: const Text('Load More'),
+                      if (_isLoadingMore)
+                        const Padding(
+                          padding: EdgeInsets.all(16.0),
+                          child: Center(
+                            child: CircularProgressIndicator(),
                           ),
                         ),
                     ],
@@ -342,6 +473,9 @@ class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
         },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stack) => Center(child: Text('Error: $error')),
+            ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
@@ -456,6 +590,17 @@ class _StoreDetailsScreenState extends ConsumerState<StoreDetailsScreen> {
       avatar: Icon(icon, size: 16, color: color),
       label: Text(
         state.name.toUpperCase(),
+        style: TextStyle(color: color, fontSize: 12),
+      ),
+      backgroundColor: color.withValues(alpha: 0.1),
+    );
+  }
+
+  Widget _buildInfoChip(IconData icon, String label, Color color) {
+    return Chip(
+      avatar: Icon(icon, size: 16, color: color),
+      label: Text(
+        label,
         style: TextStyle(color: color, fontSize: 12),
       ),
       backgroundColor: color.withValues(alpha: 0.1),

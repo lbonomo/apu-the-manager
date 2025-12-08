@@ -24,7 +24,7 @@ final dioProvider = AutoDisposeProvider<Dio>.internal(
 // ignore: unused_element
 typedef DioRef = AutoDisposeProviderRef<Dio>;
 String _$fileSearchRemoteDataSourceHash() =>
-    r'7a27c1a741697c49383913a364d036ffbf0ceafa';
+    r'67a4f56a9ff2830ad667a1818b908db0c0090a63';
 
 /// See also [fileSearchRemoteDataSource].
 @ProviderFor(fileSearchRemoteDataSource)

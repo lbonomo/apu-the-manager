@@ -1,10 +1,7 @@
-import 'package:json_annotation/json_annotation.dart';
 import '../../domain/entities/document.dart';
 import '../../core/utils/json_converters.dart';
+import 'custom_metadata_model.dart';
 
-part 'document_model.g.dart';
-
-@JsonSerializable(createFactory: false)
 class DocumentModel extends Document {
   const DocumentModel({
     required super.name,
@@ -14,9 +11,15 @@ class DocumentModel extends Document {
     super.state,
     super.sizeBytes,
     super.mimeType,
+    super.customMetadata,
   });
 
   factory DocumentModel.fromJson(Map<String, dynamic> json) {
+    final customMetadataJson = json['customMetadata'] as List<dynamic>?;
+    final customMetadata = customMetadataJson
+        ?.map((item) => CustomMetadataModel.fromJson(item as Map<String, dynamic>))
+        .toList();
+
     return DocumentModel(
       name: json['name'] as String,
       displayName: json['displayName'] as String?,
@@ -29,8 +32,7 @@ class DocumentModel extends Document {
       state: stringToDocumentState(json['state'] as String?),
       sizeBytes: stringToInt(json['sizeBytes']),
       mimeType: json['mimeType'] as String?,
+      customMetadata: customMetadata,
     );
   }
-
-  Map<String, dynamic> toJson() => _$DocumentModelToJson(this);
 }
