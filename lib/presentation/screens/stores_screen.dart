@@ -139,156 +139,180 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
           }
           return LayoutBuilder(
             builder: (context, constraints) {
-              const minTableWidth = 720.0;
-              const columnSpacing = 24.0;
-              const dateColumnWidth = 180.0;
-              const documentsColumnWidth = 120.0;
-              const sizeColumnWidth = 120.0;
-              const actionColumnWidth = 72.0;
-              const minNameColumnWidth = 220.0;
-              const fixedColumnsWidth = (columnSpacing * 5) +
+              const columnSpacing = 16.0;
+              const dateColumnWidth = 160.0;
+              const documentsColumnWidth = 100.0;
+              const sizeColumnWidth = 100.0;
+              const actionColumnWidth = 100.0;
+              const edgePadding = 32.0; // 16 left + 16 right
+              final fixedColumnsWidth = (columnSpacing * 5) +
                   (dateColumnWidth * 2) +
                   documentsColumnWidth +
                   sizeColumnWidth +
                   actionColumnWidth;
-              final baseWidth =
-                  constraints.maxWidth > minTableWidth ? constraints.maxWidth : minTableWidth;
-              final nameWidthCandidate = baseWidth - fixedColumnsWidth;
-              final nameColumnWidth =
-                  nameWidthCandidate > minNameColumnWidth ? nameWidthCandidate : minNameColumnWidth;
-              final tableWidth = nameWidthCandidate > minNameColumnWidth
-                  ? baseWidth
-                  : fixedColumnsWidth + minNameColumnWidth;
+              final nameColumnWidth = ((constraints.maxWidth - edgePadding) - fixedColumnsWidth).clamp(150.0, double.infinity);
 
               return SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(minWidth: tableWidth),
-                    child: DataTable(
-                      sortColumnIndex: _sortColumnIndex,
-                      sortAscending: _sortAscending,
-                      columnSpacing: columnSpacing,
-                      showCheckboxColumn: false,
-                      // Columns of the data table.
-                      columns: [
-                        DataColumn(
-                          label: const Text('Nombre'),
-                          onSort: (columnIndex, ascending) {
-                            setState(() {
-                              _sortColumnIndex = columnIndex;
-                              _sortAscending = ascending;
-                            });
-                          },
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                  child: DataTable(
+                    sortColumnIndex: _sortColumnIndex,
+                    sortAscending: _sortAscending,
+                    columnSpacing: columnSpacing,
+                    showCheckboxColumn: false,
+                    // Columns of the data table.
+                    columns: [
+                      DataColumn(
+                        label: const Text('Nombre'),
+                        onSort: (columnIndex, ascending) {
+                          setState(() {
+                            _sortColumnIndex = columnIndex;
+                            _sortAscending = ascending;
+                          });
+                        },
+                      ),
+                      DataColumn(
+                        label: const Text('Creado'),
+                        onSort: (columnIndex, ascending) {
+                          setState(() {
+                            _sortColumnIndex = columnIndex;
+                            _sortAscending = ascending;
+                          });
+                        },
+                      ),
+                      DataColumn(
+                        label: const Text('Actualizado'),
+                        onSort: (columnIndex, ascending) {
+                          setState(() {
+                            _sortColumnIndex = columnIndex;
+                            _sortAscending = ascending;
+                          });
+                        },
+                      ),
+                      DataColumn(
+                        label: const Text('Documentos'),
+                        numeric: true,
+                        onSort: (columnIndex, ascending) {
+                          setState(() {
+                            _sortColumnIndex = columnIndex;
+                            _sortAscending = ascending;
+                          });
+                        },
+                      ),
+                      DataColumn(
+                        label: const Text('Tamaño'),
+                        numeric: true,
+                        onSort: (columnIndex, ascending) {
+                          setState(() {
+                            _sortColumnIndex = columnIndex;
+                            _sortAscending = ascending;
+                          });
+                        },
+                      ),
+                      DataColumn(
+                        label: const Text('Acciones'),
+                      ),
+                    ],
+                    rows: sortedStores.map((store) {
+                      return DataRow(
+                        onSelectChanged: (_) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  StoreDetailsScreen(storeId: store.name),
+                            ),
+                          );
+                        },
+                        color: WidgetStateProperty.resolveWith<Color?>(
+                          (states) => states.contains(WidgetState.hovered)
+                              ? Theme.of(context)
+                                  .colorScheme
+                                  .primary
+                                  .withValues(alpha: 0.08)
+                              : null,
                         ),
-                        DataColumn(
-                          label: const Text('Creado'),
-                          onSort: (columnIndex, ascending) {
-                            setState(() {
-                              _sortColumnIndex = columnIndex;
-                              _sortAscending = ascending;
-                            });
-                          },
-                        ),
-                        DataColumn(
-                          label: const Text('Actualizado'),
-                          onSort: (columnIndex, ascending) {
-                            setState(() {
-                              _sortColumnIndex = columnIndex;
-                              _sortAscending = ascending;
-                            });
-                          },
-                        ),
-                        DataColumn(
-                          label: const Text('Documentos'),
-                          numeric: true,
-                          onSort: (columnIndex, ascending) {
-                            setState(() {
-                              _sortColumnIndex = columnIndex;
-                              _sortAscending = ascending;
-                            });
-                          },
-                        ),
-                        DataColumn(
-                          label: const Text('Tamaño'),
-                          numeric: true,
-                          onSort: (columnIndex, ascending) {
-                            setState(() {
-                              _sortColumnIndex = columnIndex;
-                              _sortAscending = ascending;
-                            });
-                          },
-                        ),
-                        const DataColumn(label: Text('')),
-                      ],
-                      rows: sortedStores.map((store) {
-                        return DataRow(
-                          onSelectChanged: (_) {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    StoreDetailsScreen(storeId: store.name),
+                        cells: [
+                          DataCell(
+                            SizedBox(
+                              width: nameColumnWidth,
+                              child: Text(
+                                store.displayName ?? store.name,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                            );
-                          },
-                          color: MaterialStateProperty.resolveWith<Color?>(
-                            (states) => states.contains(MaterialState.hovered)
-                                ? Theme.of(context)
-                                    .colorScheme
-                                    .primary
-                                    .withOpacity(0.08)
-                                : null,
+                            ),
                           ),
-                          cells: [
-                            DataCell(
-                              SizedBox(
-                                width: nameColumnWidth,
-                                child: Text(
-                                  store.displayName ?? store.name,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
+                          DataCell(
+                            SizedBox(
+                              width: dateColumnWidth,
+                              child: Text(_formatDate(store.createTime)),
                             ),
-                            DataCell(
-                              SizedBox(
-                                width: dateColumnWidth,
-                                child: Text(_formatDate(store.createTime)),
-                              ),
+                          ),
+                          DataCell(
+                            SizedBox(
+                              width: dateColumnWidth,
+                              child: Text(_formatDate(store.updateTime)),
                             ),
-                            DataCell(
-                              SizedBox(
-                                width: dateColumnWidth,
-                                child: Text(_formatDate(store.updateTime)),
-                              ),
-                            ),
-                            DataCell(
-                              SizedBox(
-                                width: documentsColumnWidth,
-                                child: Align(
-                                    alignment: Alignment.centerRight,
-                                    child: Text('${store.activeDocumentsCount ?? 0}'),
-                                  ),
-                                ),
-                            ),
-                            DataCell(
-                              SizedBox(
-                                width: sizeColumnWidth,
-                                child: Align(
+                          ),
+                          DataCell(
+                            SizedBox(
+                              width: documentsColumnWidth,
+                              child: Align(
                                   alignment: Alignment.centerRight,
-                                  child: Text(_formatBytes(store.sizeBytes)),
+                                  child: Text('${store.activeDocumentsCount ?? 0}'),
                                 ),
                               ),
+                          ),
+                          DataCell(
+                            SizedBox(
+                              width: sizeColumnWidth,
+                              child: Align(
+                                alignment: Alignment.centerRight,
+                                child: Text(_formatBytes(store.sizeBytes)),
+                              ),
                             ),
-                            DataCell(
-                              SizedBox(
-                                width: actionColumnWidth,
-                                child: Center(
-                                  child: IconButton(
-                                    icon: const Icon(Icons.delete),
-                                    tooltip: 'Eliminar',
-                                    onPressed: () async {
+                          ),
+                          DataCell(
+                            SizedBox(
+                              width: actionColumnWidth,
+                              child: Center(
+                                child: IconButton(
+                                  icon: const Icon(
+                                    Icons.delete,
+                                    color: Colors.red,
+                                  ),
+                                  tooltip: 'Eliminar',
+                                  onPressed: () async {
+                                    final confirm = await showDialog<bool>(
+                                      context: context,
+                                      builder: (dialogContext) => AlertDialog(
+                                        title: const Text('Confirmar eliminación'),
+                                        content: Text(
+                                          '¿Deseas eliminar el store "${store.displayName ?? store.name}"?',
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(
+                                              dialogContext,
+                                              false,
+                                            ),
+                                            child: const Text('Cancelar'),
+                                          ),
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(
+                                              dialogContext,
+                                              true,
+                                            ),
+                                            child: const Text('Eliminar'),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+
+                                    if (confirm == true && context.mounted) {
                                       try {
                                         await ref
                                             .read(storesListProvider.notifier)
@@ -297,7 +321,8 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
                                           ScaffoldMessenger.of(context)
                                               .showSnackBar(
                                             const SnackBar(
-                                                content: Text('Store deleted')),
+                                              content: Text('Store eliminado'),
+                                            ),
                                           );
                                         }
                                       } catch (e) {
@@ -310,15 +335,15 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
                                           );
                                         }
                                       }
-                                    },
-                                  ),
+                                    }
+                                  },
                                 ),
                               ),
                             ),
-                          ],
-                        );
-                      }).toList(),
-                    ),
+                          ),
+                        ],
+                      );
+                    }).toList(),
                   ),
                 ),
               );
