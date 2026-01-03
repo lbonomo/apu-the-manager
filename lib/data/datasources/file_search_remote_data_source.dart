@@ -102,6 +102,7 @@ class FileSearchRemoteDataSourceImpl implements FileSearchRemoteDataSource {
   Future<StoreModel> createStore(String displayName) async {
     try {
       final key = await _apiKey;
+      logger.i('Creating store with displayName: $displayName');
       final response = await dio.post(
         '$_baseUrl/fileSearchStores',
         queryParameters: {'key': key},
@@ -111,9 +112,30 @@ class FileSearchRemoteDataSourceImpl implements FileSearchRemoteDataSource {
       if (response.statusCode == 200) {
         return StoreModel.fromJson(response.data);
       } else {
+        logger.e(
+          'API Error: Failed to create store with status ${response.statusCode}',
+        );
         throw ServerFailure('Failed to create store: ${response.statusCode}');
       }
+    } on DioException catch (e) {
+      String errorMessage = e.message ?? 'Unknown Dio error';
+      if (e.response?.data is Map &&
+          (e.response?.data as Map).containsKey('error')) {
+        final errorMap = e.response?.data['error'];
+        if (errorMap is Map) {
+          errorMessage =
+              '${errorMap['message']} (Status: ${errorMap['status']})';
+        }
+      }
+      logger.e(
+        'DioException in createStore: ${e.response?.statusCode} - $errorMessage',
+      );
+      logger.d('Response data: ${e.response?.data}');
+      throw ServerFailure(
+        'Failed to create store: ${e.response?.statusCode} - $errorMessage',
+      );
     } catch (e) {
+      logger.e('Unexpected error in createStore', e);
       throw ServerFailure(e.toString());
     }
   }
@@ -128,15 +150,37 @@ class FileSearchRemoteDataSourceImpl implements FileSearchRemoteDataSource {
       // But the Store model returns the full name in 'name' field.
 
       final key = await _apiKey;
+      logger.i('Deleting store: $storeId');
       final response = await dio.delete(
         '$_baseUrl/$storeId',
         queryParameters: {'key': key},
       );
 
       if (response.statusCode != 200) {
+        logger.e(
+          'API Error: Failed to delete store with status ${response.statusCode}',
+        );
         throw ServerFailure('Failed to delete store: ${response.statusCode}');
       }
+    } on DioException catch (e) {
+      String errorMessage = e.message ?? 'Unknown Dio error';
+      if (e.response?.data is Map &&
+          (e.response?.data as Map).containsKey('error')) {
+        final errorMap = e.response?.data['error'];
+        if (errorMap is Map) {
+          errorMessage =
+              '${errorMap['message']} (Status: ${errorMap['status']})';
+        }
+      }
+      logger.e(
+        'DioException in deleteStore: ${e.response?.statusCode} - $errorMessage',
+      );
+      logger.d('Response data: ${e.response?.data}');
+      throw ServerFailure(
+        'Failed to delete store: ${e.response?.statusCode} - $errorMessage',
+      );
     } catch (e) {
+      logger.e('Unexpected error in deleteStore', e);
       throw ServerFailure(e.toString());
     }
   }
@@ -149,6 +193,7 @@ class FileSearchRemoteDataSourceImpl implements FileSearchRemoteDataSource {
   }) async {
     try {
       final key = await _apiKey;
+      logger.i('Listing documents for store: $storeId (pageSize: $pageSize)');
       final queryParams = {'key': key, 'pageSize': pageSize};
       if (pageToken != null) {
         queryParams['pageToken'] = pageToken;
@@ -165,11 +210,35 @@ class FileSearchRemoteDataSourceImpl implements FileSearchRemoteDataSource {
             .map((json) => DocumentModel.fromJson(json))
             .toList();
         final nextPageToken = response.data['nextPageToken'] as String?;
+        logger.i(
+          'Successfully listed ${documents.length} documents from store: $storeId',
+        );
         return PaginatedResult(items: documents, nextPageToken: nextPageToken);
       } else {
+        logger.e(
+          'API Error: Failed to list documents with status ${response.statusCode}',
+        );
         throw ServerFailure('Failed to list documents: ${response.statusCode}');
       }
+    } on DioException catch (e) {
+      String errorMessage = e.message ?? 'Unknown Dio error';
+      if (e.response?.data is Map &&
+          (e.response?.data as Map).containsKey('error')) {
+        final errorMap = e.response?.data['error'];
+        if (errorMap is Map) {
+          errorMessage =
+              '${errorMap['message']} (Status: ${errorMap['status']})';
+        }
+      }
+      logger.e(
+        'DioException in listDocuments: ${e.response?.statusCode} - $errorMessage',
+      );
+      logger.d('Response data: ${e.response?.data}');
+      throw ServerFailure(
+        'Failed to list documents: ${e.response?.statusCode} - $errorMessage',
+      );
     } catch (e) {
+      logger.e('Unexpected error in listDocuments', e);
       throw ServerFailure(e.toString());
     }
   }
@@ -221,7 +290,7 @@ class FileSearchRemoteDataSourceImpl implements FileSearchRemoteDataSource {
       // We need to construct the metadata JSON.
       // Build the metadata object with displayName and optionally customMetadata
       Map<String, dynamic> metadataObject = {'displayName': fileName};
-      
+
       // Add custom metadata if provided
       if (customMetadata != null && customMetadata.isNotEmpty) {
         // Convert customMetadata to the format expected by the API
@@ -232,10 +301,7 @@ class FileSearchRemoteDataSourceImpl implements FileSearchRemoteDataSource {
         List<Map<String, dynamic>> customMetadataArray = [];
         customMetadata.forEach((key, value) {
           if (value is String) {
-            customMetadataArray.add({
-              'key': key,
-              'stringValue': value,
-            });
+            customMetadataArray.add({'key': key, 'stringValue': value});
           } else if (value is num) {
             customMetadataArray.add({
               'key': key,
@@ -246,13 +312,11 @@ class FileSearchRemoteDataSourceImpl implements FileSearchRemoteDataSource {
             final stringList = value.map((e) => e.toString()).toList();
             customMetadataArray.add({
               'key': key,
-              'stringListValue': {
-                'values': stringList,
-              },
+              'stringListValue': {'values': stringList},
             });
           }
         });
-        
+
         if (customMetadataArray.isNotEmpty) {
           metadataObject['customMetadata'] = customMetadataArray;
         }
@@ -301,7 +365,7 @@ class FileSearchRemoteDataSourceImpl implements FileSearchRemoteDataSource {
 
         if (data['done'] == true) {
           if (data.containsKey('response')) {
-             logger.d('Parseando documento desde response: ${data['response']}');
+            logger.d('Parseando documento desde response: ${data['response']}');
             // The response field contains the Document, but it might be wrapped or typed.
             // Actually, the `response` field in Operation is an Any type.
             // We might need to parse it.
@@ -318,12 +382,19 @@ class FileSearchRemoteDataSourceImpl implements FileSearchRemoteDataSource {
             // If `done` is true, `response` holds the result.
             // The result should be the Document.
             try {
+              logger.i(
+                'Document uploaded successfully: ${data['response']['displayName'] ?? 'unknown'} (${data['response']['name']})',
+              );
               return DocumentModel.fromJson(data['response']);
             } catch (e) {
-              logger.e('Error al parsear DocumentModel desde respuesta: ${data['response']}', e);
+              logger.e(
+                'Error al parsear DocumentModel desde respuesta: ${data['response']}',
+                e,
+              );
               throw ServerFailure('Error de formato en respuesta de API: $e');
             }
           } else if (data.containsKey('error')) {
+            logger.e('API Error during upload: ${data['error']}');
             throw ServerFailure('Upload failed: ${data['error']}');
           }
         }
@@ -332,8 +403,12 @@ class FileSearchRemoteDataSourceImpl implements FileSearchRemoteDataSource {
         // For simplicity, let's throw saying it's processing.
         // Or better, implement polling.
         String operationName = data['name'];
+        logger.i('Document upload operation started (polling): $operationName');
         return await _pollOperation(operationName);
       } else {
+        logger.e(
+          'API Error: Failed to upload document with status ${response.statusCode}',
+        );
         throw ServerFailure(
           'Failed to upload document: ${response.statusCode}',
         );
@@ -342,7 +417,7 @@ class FileSearchRemoteDataSourceImpl implements FileSearchRemoteDataSource {
       logger.e('DioException in uploadDocument', e);
       logger.d('Response status: ${e.response?.statusCode}');
       logger.d('Response data: ${e.response?.data}');
-      
+
       throw ServerFailure('Failed to upload document: ${e.message}');
     } catch (e) {
       throw ServerFailure(e.toString());
@@ -354,22 +429,35 @@ class FileSearchRemoteDataSourceImpl implements FileSearchRemoteDataSource {
     while (attempts < 10) {
       await Future.delayed(Duration(seconds: 2));
       final key = await _apiKey;
-      final response = await dio.get(
-        '$_baseUrl/$operationName',
-        queryParameters: {'key': key},
+      logger.d(
+        'Polling operation (attempt ${attempts + 1}/10): $operationName',
       );
+      try {
+        final response = await dio.get(
+          '$_baseUrl/$operationName',
+          queryParameters: {'key': key},
+        );
 
-      if (response.statusCode == 200) {
-        final data = response.data;
-        if (data['done'] == true) {
-          if (data.containsKey('error')) {
-            throw ServerFailure('Upload failed: ${data['error']}');
+        if (response.statusCode == 200) {
+          final data = response.data;
+          if (data['done'] == true) {
+            if (data.containsKey('error')) {
+              logger.e('API Error in operation polling: ${data['error']}');
+              throw ServerFailure('Upload failed: ${data['error']}');
+            }
+            logger.i('Upload operation completed successfully');
+            return DocumentModel.fromJson(data['response']);
           }
-          return DocumentModel.fromJson(data['response']);
         }
+      } on DioException catch (e) {
+        logger.e(
+          'DioException while polling operation: ${e.response?.statusCode} - ${e.message}',
+        );
+        logger.d('Response data: ${e.response?.data}');
       }
       attempts++;
     }
+    logger.e('Upload operation timed out after 10 polling attempts');
     throw ServerFailure('Upload timed out');
   }
 
@@ -446,9 +534,14 @@ class FileSearchRemoteDataSourceImpl implements FileSearchRemoteDataSource {
             logger.d('  Request URL: ${retryError.requestOptions.uri}');
 
             if (_isNonEmptyDocumentError(retryError)) {
+              logger.e(
+                'Store/Document contains chunks that could not be deleted. API may still be processing.',
+              );
               throw ServerFailure(
-                'Cannot delete document even after removing all chunks. '
-                'Please try again later as the Gemini API may still be processing the deletions.',
+                'No se pudo eliminar completamente el store/documento porque aún contiene fragmentos en procesamiento. '
+                'La API de Gemini está finalizando las operaciones anteriores. '
+                'Por favor, intenta eliminar de nuevo en unos momentos. '
+                'Si el problema persiste, verifica que el store esté realmente vacío en Google AI Studio.',
               );
             }
 
@@ -493,6 +586,10 @@ class FileSearchRemoteDataSourceImpl implements FileSearchRemoteDataSource {
           return;
         }
 
+        logger.e(
+          'DioException in _deleteDocumentChunks (listChunks): ${chunkListError.response?.statusCode} - ${chunkListError.message}',
+        );
+        logger.d('Response data: ${chunkListError.response?.data}');
         throw ServerFailure(
           'Failed to list document chunks: '
           '${chunkListError.response?.statusCode ?? chunkListError.message}',
@@ -537,6 +634,10 @@ class FileSearchRemoteDataSourceImpl implements FileSearchRemoteDataSource {
             continue;
           }
 
+          logger.e(
+            'DioException in _deleteDocumentChunks (deleteChunk): ${chunkError.response?.statusCode} - ${chunkError.message}',
+          );
+          logger.d('Response data: ${chunkError.response?.data}');
           throw ServerFailure(
             'Failed to delete chunk $chunkName: '
             '${chunkError.response?.statusCode ?? chunkError.message}',
@@ -585,6 +686,7 @@ class FileSearchRemoteDataSourceImpl implements FileSearchRemoteDataSource {
     var effectiveMimeType = mimeType;
     final key = await _apiKey;
     Map<String, dynamic>? documentData;
+    logger.i('Fetching document content: $documentName');
     try {
       final response = await dio.get(
         '$_baseUrl/$documentName',
@@ -594,7 +696,13 @@ class FileSearchRemoteDataSourceImpl implements FileSearchRemoteDataSource {
         documentData = Map<String, dynamic>.from(response.data as Map);
         effectiveMimeType ??= documentData['mimeType'] as String?;
       }
-    } catch (_) {
+    } on DioException catch (e) {
+      logger.d(
+        'DioException while fetching document metadata (not critical): ${e.response?.statusCode} - ${e.message}',
+      );
+      // Ignore errors when fetching document metadata; fall back to file endpoint.
+    } catch (e) {
+      logger.d('Exception while fetching document metadata (not critical): $e');
       // Ignore errors when fetching document metadata; fall back to file endpoint.
     }
 
@@ -635,11 +743,17 @@ class FileSearchRemoteDataSourceImpl implements FileSearchRemoteDataSource {
 
     late final Response<dynamic> contentResponse;
     try {
+      logger.d('Downloading content for document: $documentName');
       contentResponse = await dio.getUri(
         uriWithKey,
         options: Options(responseType: ResponseType.bytes),
       );
+      logger.i('Successfully downloaded content for document: $documentName');
     } on DioException catch (e) {
+      logger.e(
+        'DioException while downloading document content: ${e.response?.statusCode} - ${e.message}',
+      );
+      logger.d('Response data: ${e.response?.data}');
       throw ServerFailure(
         'Failed to download document content: '
         '${e.response?.statusCode ?? e.message}',
@@ -647,6 +761,9 @@ class FileSearchRemoteDataSourceImpl implements FileSearchRemoteDataSource {
     }
 
     if (contentResponse.statusCode != 200) {
+      logger.e(
+        'API Error: Failed to download document content with status ${contentResponse.statusCode}',
+      );
       throw ServerFailure(
         'Failed to download document content: ${contentResponse.statusCode}',
       );

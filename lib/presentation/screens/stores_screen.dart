@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:developer' as developer;
 import '../providers/store_providers.dart';
 import 'create_store_screen.dart';
 import 'store_details_screen.dart';
@@ -44,8 +45,12 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
       int result;
       switch (_sortColumnIndex) {
         case 0:
-          final aName = (a.displayName ?? a.name ?? '').toString().toLowerCase();
-          final bName = (b.displayName ?? b.name ?? '').toString().toLowerCase();
+          final aName = (a.displayName ?? a.name ?? '')
+              .toString()
+              .toLowerCase();
+          final bName = (b.displayName ?? b.name ?? '')
+              .toString()
+              .toLowerCase();
           result = _compareValues<String>(aName, bName);
           break;
         case 1:
@@ -61,14 +66,24 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
           );
           break;
         case 3:
-          result = _compareValues<num>(_parseNum(a.activeDocumentsCount) ?? 0, _parseNum(b.activeDocumentsCount) ?? 0);
+          result = _compareValues<num>(
+            _parseNum(a.activeDocumentsCount) ?? 0,
+            _parseNum(b.activeDocumentsCount) ?? 0,
+          );
           break;
         case 4:
-          result = _compareValues<num>(_parseNum(a.sizeBytes) ?? 0, _parseNum(b.sizeBytes) ?? 0);
+          result = _compareValues<num>(
+            _parseNum(a.sizeBytes) ?? 0,
+            _parseNum(b.sizeBytes) ?? 0,
+          );
           break;
         default:
-          final aNameFallback = (a.displayName ?? a.name ?? '').toString().toLowerCase();
-          final bNameFallback = (b.displayName ?? b.name ?? '').toString().toLowerCase();
+          final aNameFallback = (a.displayName ?? a.name ?? '')
+              .toString()
+              .toLowerCase();
+          final bNameFallback = (b.displayName ?? b.name ?? '')
+              .toString()
+              .toLowerCase();
           result = _compareValues<String>(aNameFallback, bNameFallback);
       }
       return _sortAscending ? result : -result;
@@ -145,12 +160,15 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
               const sizeColumnWidth = 100.0;
               const actionColumnWidth = 100.0;
               const edgePadding = 32.0; // 16 left + 16 right
-              final fixedColumnsWidth = (columnSpacing * 5) +
+              final fixedColumnsWidth =
+                  (columnSpacing * 5) +
                   (dateColumnWidth * 2) +
                   documentsColumnWidth +
                   sizeColumnWidth +
                   actionColumnWidth;
-              final nameColumnWidth = ((constraints.maxWidth - edgePadding) - fixedColumnsWidth).clamp(150.0, double.infinity);
+              final nameColumnWidth =
+                  ((constraints.maxWidth - edgePadding) - fixedColumnsWidth)
+                      .clamp(150.0, double.infinity);
 
               return SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
@@ -210,9 +228,7 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
                           });
                         },
                       ),
-                      DataColumn(
-                        label: const Text('Acciones'),
-                      ),
+                      DataColumn(label: const Text('Acciones')),
                     ],
                     rows: sortedStores.map((store) {
                       return DataRow(
@@ -227,10 +243,9 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
                         },
                         color: WidgetStateProperty.resolveWith<Color?>(
                           (states) => states.contains(WidgetState.hovered)
-                              ? Theme.of(context)
-                                  .colorScheme
-                                  .primary
-                                  .withValues(alpha: 0.08)
+                              ? Theme.of(
+                                  context,
+                                ).colorScheme.primary.withValues(alpha: 0.08)
                               : null,
                         ),
                         cells: [
@@ -259,10 +274,12 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
                             SizedBox(
                               width: documentsColumnWidth,
                               child: Align(
-                                  alignment: Alignment.centerRight,
-                                  child: Text('${store.activeDocumentsCount ?? 0}'),
+                                alignment: Alignment.centerRight,
+                                child: Text(
+                                  '${store.activeDocumentsCount ?? 0}',
                                 ),
                               ),
+                            ),
                           ),
                           DataCell(
                             SizedBox(
@@ -287,22 +304,22 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
                                     final confirm = await showDialog<bool>(
                                       context: context,
                                       builder: (dialogContext) => AlertDialog(
-                                        title: const Text('Confirmar eliminación'),
+                                        title: const Text(
+                                          'Confirmar eliminación',
+                                        ),
                                         content: Text(
                                           '¿Deseas eliminar el store "${store.displayName ?? store.name}"?',
                                         ),
                                         actions: [
                                           TextButton(
-                                            onPressed: () =>
-                                                Navigator.pop(
+                                            onPressed: () => Navigator.pop(
                                               dialogContext,
                                               false,
                                             ),
                                             child: const Text('Cancelar'),
                                           ),
                                           TextButton(
-                                            onPressed: () =>
-                                                Navigator.pop(
+                                            onPressed: () => Navigator.pop(
                                               dialogContext,
                                               true,
                                             ),
@@ -318,19 +335,28 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
                                             .read(storesListProvider.notifier)
                                             .deleteStore(store.name);
                                         if (context.mounted) {
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
                                             const SnackBar(
                                               content: Text('Store eliminado'),
                                             ),
                                           );
                                         }
                                       } catch (e) {
+                                        developer.log(
+                                          'Error al eliminar store: $e',
+                                          name: 'StoresScreen.deleteStore',
+                                          error: e,
+                                        );
                                         if (context.mounted) {
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(
+                                          final message = _getErrorMessage(e);
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
                                             SnackBar(
-                                              content: Text('Error: $e'),
+                                              content: Text(message),
+                                              backgroundColor: Colors.red,
                                             ),
                                           );
                                         }
@@ -363,5 +389,42 @@ class _StoresScreenState extends ConsumerState<StoresScreen> {
         child: const Icon(Icons.add),
       ),
     );
+  }
+
+  String _getErrorMessage(dynamic error) {
+    final errorString = error.toString().toLowerCase();
+
+    if (errorString.contains('document') || errorString.contains('not empty')) {
+      return 'No se puede eliminar el store porque contiene documentos.\n\n'
+          '📋 Solución:\n'
+          '1. Abre el store y accede a la sección de documentos\n'
+          '2. Elimina todos los documentos que contiene\n'
+          '3. Una vez estén vacíos todos los documentos, podrás eliminar el store\n\n'
+          'Nota: Si hay documentos en estado "Pendiente" o "Fallido", espera a que se procesen antes de eliminar.';
+    }
+
+    if (errorString.contains('fragmentos') ||
+        errorString.contains('chunks') ||
+        errorString.contains('processing')) {
+      return 'El store aún tiene fragmentos en procesamiento.\n\n'
+          '⏳ Qué está pasando:\n'
+          'La API de Gemini está finalizando la eliminación de chunks anteriores.\n\n'
+          '💡 Qué hacer:\n'
+          '1. Espera unos 30-60 segundos\n'
+          '2. Intenta eliminar de nuevo\n'
+          '3. Si sigue sin funcionar, verifica en Google AI Studio que el store esté vacío\n\n'
+          'Este error es temporal y se resuelve automáticamente.';
+    }
+
+    if (errorString.contains('permission') ||
+        errorString.contains('forbidden')) {
+      return 'No tienes permiso para eliminar este store. Verifica tus credenciales de API en la configuración.';
+    }
+
+    if (errorString.contains('not found')) {
+      return 'El store no existe o ya fue eliminado. Intenta actualizar la lista.';
+    }
+
+    return 'Error al eliminar el store: $error';
   }
 }

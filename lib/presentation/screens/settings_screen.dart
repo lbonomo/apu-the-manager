@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/settings_provider.dart';
+import '../providers/core_providers.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -11,11 +12,21 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   late TextEditingController _apiKeyController;
+  String? _logFilePath;
 
   @override
   void initState() {
     super.initState();
     _apiKeyController = TextEditingController();
+    _loadLogFilePath();
+  }
+
+  Future<void> _loadLogFilePath() async {
+    final loggerService = ref.read(loggerServiceProvider);
+    final filePath = await loggerService.getLogFilePath();
+    setState(() {
+      _logFilePath = filePath;
+    });
   }
 
   @override
@@ -45,15 +56,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
           return ListView(
             children: [
-              SwitchListTile(
-                title: const Text('Habilitar Logs'),
-                subtitle: const Text(
-                  'Activa o desactiva el registro de eventos de la aplicación.',
+              Tooltip(
+                message: settings.loggingEnabled && _logFilePath != null
+                    ? 'Ubicación del archivo: $_logFilePath'
+                    : 'Los logs se guardarán cuando estén habilitados',
+                child: SwitchListTile(
+                  title: const Text('Habilitar Logs'),
+                  subtitle: const Text(
+                    'Activa o desactiva el registro de eventos de la aplicación.',
+                  ),
+                  value: settings.loggingEnabled,
+                  onChanged: (value) {
+                    ref.read(settingsProvider.notifier).toggleLogging(value);
+                  },
                 ),
-                value: settings.loggingEnabled,
-                onChanged: (value) {
-                  ref.read(settingsProvider.notifier).toggleLogging(value);
-                },
               ),
               const Divider(),
               Padding(
